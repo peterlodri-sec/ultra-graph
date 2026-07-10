@@ -15,10 +15,11 @@ class SGD:
     optionally, ``requantize()``), e.g. an ``UltraGraph``.
     """
 
-    def __init__(self, target, lr: float = 0.1, momentum: float = 0.0):
+    def __init__(self, target, lr: float = 0.1, momentum: float = 0.0, clip: float | None = None):
         self.target = target
         self.lr = float(lr)
         self.momentum = float(momentum)
+        self.clip = None if clip is None else float(clip)
         if hasattr(target, "parameters"):
             self._params = target.parameters()
         else:
@@ -26,7 +27,19 @@ class SGD:
         self._requantize = getattr(target, "requantize", None)
         self._vel: dict[int, np.ndarray] = {}
 
+    def _clip_grads(self) -> None:
+        total = 0.0
+        for p in self._params:
+            total += float(np.sum(p.grad * p.grad))
+        norm = total ** 0.5
+        if norm > self.clip and norm > 0.0:
+            scale = self.clip / norm
+            for p in self._params:
+                p.grad *= scale
+
     def step(self) -> None:
+        if self.clip is not None:
+            self._clip_grads()
         for p in self._params:
             g = p.grad
             if self.momentum:

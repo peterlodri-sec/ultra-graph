@@ -8,7 +8,7 @@ import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-MODULES = ["test_quant", "test_autograd", "test_core", "test_io", "test_viz", "test_e2e"]
+MODULES = ["test_quant", "test_autograd", "test_core", "test_io", "test_viz", "test_attention", "test_e2e"]
 
 
 def main() -> int:

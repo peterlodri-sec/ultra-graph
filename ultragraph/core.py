@@ -300,6 +300,10 @@ class UltraGraph:
         return params
 
     def requantize(self) -> None:
+        for m in self.modules:
+            r = getattr(m, "requantize", None)
+            if callable(r):
+                r()
         for t in self.trees:
             t.requantize()
 

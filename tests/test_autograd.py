@@ -83,6 +83,24 @@ def test_cross_entropy_grad():
     assert np.allclose(z_t.grad, gz, atol=1e-2)
 
 
+def test_transpose_grad():
+    rng = np.random.RandomState(5)
+    A = rng.randn(3, 5).astype(np.float32)
+    B = rng.randn(3, 4).astype(np.float32)  # loss = sum(A.T @ B) : A.T is [5,3]
+
+    def fwd_np(arrs):
+        a, b = arrs
+        return (a.T @ b).sum()
+
+    a_t = Tensor(A.copy(), requires_grad=True)
+    b_t = Tensor(B.copy(), requires_grad=True)
+    (a_t.transpose() @ b_t).sum().backward()
+    ga = _numeric_grad(fwd_np, [A.copy(), B.copy()], 0)
+    assert np.allclose(a_t.grad, ga, atol=1e-2)
+    # .T property mirrors transpose()
+    assert np.array_equal(Tensor(A).T.data, A.T)
+
+
 def test_ternary_linear_ste_matches_surrogate():
     """STE: grads should match the *unquantized* linear surrogate y = x @ W.T + b."""
     rng = np.random.RandomState(4)

@@ -11,7 +11,7 @@ from typing import Callable, Iterable
 
 import numpy as np
 
-from .quant import quantize_act_int8, quantize_weight_ternary
+from .quant import EPS, quantize_weight_ternary
 
 
 def _unbroadcast(grad: np.ndarray, shape: tuple[int, ...]) -> np.ndarray:
@@ -111,6 +111,19 @@ class Tensor:
         out._backward = _backward
         return out
 
+    def transpose(self):
+        out = self._child(self.data.T, (self,), None)
+
+        def _backward():
+            self.grad += out.grad.T
+
+        out._backward = _backward
+        return out
+
+    @property
+    def T(self):
+        return self.transpose()
+
     def sum(self):
         out = self._child(np.array(self.data.sum(), dtype=np.float32), (self,), None)
 
@@ -193,9 +206,16 @@ def ternary_linear(x: Tensor, master_w: Tensor, bias: Tensor | None = None) -> T
     Shapes: x [batch, in], master_w [out, in], bias [out] -> y [batch, out].
     """
     wq, sw = quantize_weight_ternary(master_w.data)
-    xq, sx = quantize_act_int8(x.data)
-    acc = xq.astype(np.int32) @ wq.T.astype(np.int32)
-    y = acc.astype(np.float32) * np.float32(sx * sw)
+    # Per-token (per-row) int8 activation quant: each row is quantized with its own
+    # scale, so a row's output depends only on that row -- essential for causal
+    # attention (a later token cannot shift an earlier token's quantization).
+    xd = np.asarray(x.data, dtype=np.float32)
+    amax = np.max(np.abs(xd), axis=-1, keepdims=True)
+    amax = np.where(np.isfinite(amax), amax, 0.0)
+    sx = amax / 127.0 + EPS  # [rows, 1]
+    xq = np.clip(np.round(np.nan_to_num(xd / sx)), -127, 127).astype(np.int8)
+    acc = xq.astype(np.int32) @ wq.T.astype(np.int32)  # [rows, out]
+    y = acc.astype(np.float32) * sx.astype(np.float32) * np.float32(sw)
     if bias is not None:
         y = y + bias.data
 
@@ -205,8 +225,11 @@ def ternary_linear(x: Tensor, master_w: Tensor, bias: Tensor | None = None) -> T
 
     if req:
         def _backward():
-            dy = out.grad  # [batch, out]
-            x.grad += dy @ master_w.data          # STE: identity through quant
+            # STE: both the ternary/int8 quantization AND the per-row activation
+            # scale (sx) are treated as identity here; gradients flow to the fp32
+            # master weights as if this were a plain linear y = x @ W.T + b.
+            dy = out.grad  # [rows, out]
+            x.grad += dy @ master_w.data
             master_w.grad += dy.T @ x.data
             if bias is not None:
                 bias.grad += dy.sum(axis=0)
