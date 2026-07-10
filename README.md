@@ -77,3 +77,16 @@ ultragraph/io.py        byte-exact save / load
 ```
 
 Design spec: `docs/superpowers/specs/2026-07-10-ultragraph-design.md`.
+
+## Install from source
+
+```sh
+git clone https://github.com/peterlodri-sec/ultra-graph
+cd ultra-graph
+uv sync
+just test
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
