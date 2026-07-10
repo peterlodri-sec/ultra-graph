@@ -1,0 +1,108 @@
+import numpy as np
+
+from ultragraph.autograd import Tensor, ternary_linear
+
+
+def _numeric_grad(forward_np, arrays, wrt, eps=1e-3):
+    """Central finite-difference gradient of scalar forward_np(arrays) wrt arrays[wrt]."""
+    a = arrays[wrt]
+    grad = np.zeros_like(a)
+    flat = a.reshape(-1)
+    gflat = grad.reshape(-1)
+    for i in range(flat.size):
+        orig = flat[i]
+        flat[i] = orig + eps
+        lp = float(forward_np(arrays))
+        flat[i] = orig - eps
+        lm = float(forward_np(arrays))
+        flat[i] = orig
+        gflat[i] = (lp - lm) / (2 * eps)
+    return grad
+
+
+def test_add_mul_matmul_relu_grads():
+    rng = np.random.RandomState(0)
+    A = rng.randn(3, 4).astype(np.float32)
+    B = rng.randn(4, 2).astype(np.float32)
+
+    def fwd_np(arrs):
+        a, b = arrs
+        return np.maximum(a @ b, 0).sum()
+
+    def fwd_t(arrs):
+        a = Tensor(arrs[0], requires_grad=True)
+        b = Tensor(arrs[1], requires_grad=True)
+        loss = (a @ b).relu().sum()
+        loss.backward()
+        return a, b
+
+    a_t, b_t = fwd_t([A.copy(), B.copy()])
+    ga = _numeric_grad(fwd_np, [A.copy(), B.copy()], 0)
+    gb = _numeric_grad(fwd_np, [A.copy(), B.copy()], 1)
+    assert np.allclose(a_t.grad, ga, atol=1e-2)
+    assert np.allclose(b_t.grad, gb, atol=1e-2)
+
+
+def test_softmax_grad():
+    rng = np.random.RandomState(2)
+    Z = rng.randn(4, 5).astype(np.float32)
+    C = rng.randn(4, 5).astype(np.float32)
+
+    def fwd_np(arrs):
+        z, c = arrs
+        zz = z - z.max(axis=-1, keepdims=True)
+        e = np.exp(zz)
+        p = e / e.sum(axis=-1, keepdims=True)
+        return (p * c).sum()
+
+    z_t = Tensor(Z.copy(), requires_grad=True)
+    c_t = Tensor(C.copy(), requires_grad=True)
+    loss = (z_t.softmax(axis=-1) * c_t).sum()
+    loss.backward()
+    gz = _numeric_grad(fwd_np, [Z.copy(), C.copy()], 0)
+    assert np.allclose(z_t.grad, gz, atol=1e-2)
+
+
+def test_cross_entropy_grad():
+    rng = np.random.RandomState(3)
+    Z = rng.randn(6, 4).astype(np.float32)
+    targets = np.array([0, 1, 2, 3, 0, 1])
+
+    def fwd_np(arrs):
+        z = arrs[0]
+        zz = z - z.max(axis=-1, keepdims=True)
+        e = np.exp(zz)
+        p = e / e.sum(axis=-1, keepdims=True)
+        n = z.shape[0]
+        return -np.log(p[np.arange(n), targets] + 1e-12).mean()
+
+    z_t = Tensor(Z.copy(), requires_grad=True)
+    loss = z_t.cross_entropy(targets)
+    loss.backward()
+    gz = _numeric_grad(fwd_np, [Z.copy()], 0)
+    assert np.allclose(z_t.grad, gz, atol=1e-2)
+
+
+def test_ternary_linear_ste_matches_surrogate():
+    """STE: grads should match the *unquantized* linear surrogate y = x @ W.T + b."""
+    rng = np.random.RandomState(4)
+    X = rng.randn(5, 6).astype(np.float32)
+    W = rng.randn(3, 6).astype(np.float32)
+    b = rng.randn(3).astype(np.float32)
+
+    def fwd_np(arrs):
+        x, w, bb = arrs
+        return (x @ w.T + bb).sum()
+
+    x_t = Tensor(X.copy(), requires_grad=True)
+    w_t = Tensor(W.copy(), requires_grad=True)
+    b_t = Tensor(b.copy(), requires_grad=True)
+    y = ternary_linear(x_t, w_t, b_t)
+    y.sum().backward()
+
+    gw = _numeric_grad(fwd_np, [X.copy(), W.copy(), b.copy()], 1)
+    gx = _numeric_grad(fwd_np, [X.copy(), W.copy(), b.copy()], 0)
+    gb = _numeric_grad(fwd_np, [X.copy(), W.copy(), b.copy()], 2)
+    assert np.allclose(w_t.grad, gw, atol=1e-2)
+    assert np.allclose(x_t.grad, gx, atol=1e-2)
+    assert np.allclose(b_t.grad, gb, atol=1e-2)
