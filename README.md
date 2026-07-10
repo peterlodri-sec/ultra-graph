@@ -2,6 +2,8 @@
 
 A pure-Python (+ numpy) **byte-graph that is a 1-bit (ternary) LLM**.
 
+> **genesis** `251e6ea` · themed after [pocoo.vaked.dev](https://pocoo.vaked.dev)
+
 Three levels:
 
 | level | unit | storage |
@@ -13,6 +15,18 @@ Three levels:
 Weights are ternary (BitNet b1.58 style); activations are int8. Full-precision
 "master" weights live in an ad-hoc side store during training; the byte buffers are
 the deployed state. Training uses a straight-through estimator (STE).
+
+## Illustrations
+
+Real outputs from a trained ternary mini-GPT — regenerate with `uv run python assets/make_figures.py`:
+
+| ultra-graph | causal attention | ternary weight bytes |
+|:---:|:---:|:---:|
+| ![architecture](assets/fig_architecture.png) | ![attention](assets/fig_attention.png) | ![weights](assets/fig_ternary_weights.png) |
+
+Left: the model as an **ultra-graph** — trees wired by ultra-edges (`===`), with residual skips.
+Middle: **real** causal self-attention weights (lower-triangular → no peeking at the future).
+Right: a trained query projection's weight bytes, each ∈ {−1, 0, +1}.
 
 ## Install
 
@@ -53,7 +67,15 @@ for _ in range(300):
     opt.zero_grad(); loss.backward(); opt.step()   # step() re-quantizes weights
 ```
 
-See `examples/char_lm.py` for an end-to-end char-level ternary language model.
+See `examples/char_lm.py` (MLP LM), `examples/transformer_lm.py` (single-head attention),
+and `examples/mini_gpt.py` (batched **multi-head** attention + **RMSNorm** + **Adam**) for
+end-to-end char-level ternary language models.
+
+```python
+from ultragraph import Embedding, MultiHeadAttention, RMSNorm, linear_tree, Adam
+# pre-norm transformer block over a [B, T, d_model] sequence:
+#   x = x + mha(norm1(x));  x = x + ff2(ff1(norm2(x)))
+```
 
 ## Tasks
 
@@ -70,9 +92,9 @@ just viz         # render example SVGs
 ultragraph/quant.py     ternary + int8 quantization, STE
 ultragraph/autograd.py  numpy autograd tape; ternary_linear (STE)
 ultragraph/core.py      Node/Edge/Tree/UltraEdge/UltraGraph + dunder API
-ultragraph/nn.py        layer patterns as trees (linear_tree, mlp)
-ultragraph/optim.py     SGD over fp32 masters, re-quantizes after step
-ultragraph/viz.py       pure-SVG micro / macro / byte-heatmap views
+ultragraph/nn.py        linear_tree, mlp, Attention, MultiHeadAttention, RMSNorm, LayerNorm
+ultragraph/optim.py     SGD + Adam over fp32 masters (grad clip), re-quantize after step
+ultragraph/viz.py       pure-SVG + optional matplotlib (micro / macro / byte-heatmap)
 ultragraph/io.py        byte-exact save / load
 ```
 

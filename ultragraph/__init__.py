@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from .autograd import Tensor, ternary_linear
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
-from .nn import Attention, linear_tree, mlp
-from .optim import SGD
+from .nn import Attention, LayerNorm, MultiHeadAttention, RMSNorm, linear_tree, mlp
+from .optim import SGD, Adam
 from .quant import dequant, quantize_act_int8, quantize_weight_ternary
 
 __version__ = "0.1.0"
@@ -24,7 +24,11 @@ __all__ = [
     "linear_tree",
     "mlp",
     "Attention",
+    "MultiHeadAttention",
+    "RMSNorm",
+    "LayerNorm",
     "SGD",
+    "Adam",
     "quantize_weight_ternary",
     "quantize_act_int8",
     "dequant",

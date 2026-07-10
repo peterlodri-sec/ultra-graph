@@ -72,3 +72,75 @@ class Attention:
     def requantize(self):
         for t in (self.wq, self.wk, self.wv, self.wo):
             t.requantize()
+
+
+class MultiHeadAttention:
+    def __init__(self, d_model, n_heads, causal=True, name="mha"):
+        assert d_model % n_heads == 0, "n_heads must divide d_model"
+        self.d_model = int(d_model); self.n_heads = int(n_heads)
+        self.d_head = d_model // n_heads
+        self.causal = bool(causal); self.name = name
+        self.wq = Tree.dense(d_model, d_model, f"{name}.q", act="none")
+        self.wk = Tree.dense(d_model, d_model, f"{name}.k", act="none")
+        self.wv = Tree.dense(d_model, d_model, f"{name}.v", act="none")
+        self.wo = Tree.dense(d_model, d_model, f"{name}.o", act="none")
+
+    def __call__(self, x):
+        two_d = (len(x.shape) == 2)
+        if two_d:
+            T, d = x.shape
+            x = x.reshape(1, T, d)
+        B, T, d = x.shape
+        H, dh = self.n_heads, self.d_head
+        q = self.wq.forward(x).reshape(B, T, H, dh).swapaxes(1, 2)   # [B,H,T,dh]
+        k = self.wk.forward(x).reshape(B, T, H, dh).swapaxes(1, 2)
+        v = self.wv.forward(x).reshape(B, T, H, dh).swapaxes(1, 2)
+        scores = (q @ k.swapaxes(-1, -2)) * (1.0 / math.sqrt(dh))    # [B,H,T,T]
+        if self.causal:
+            mask = np.triu(np.full((T, T), -1e9, dtype=np.float32), k=1)
+            scores = scores + Tensor(mask)                          # broadcasts over [B,H,·,·]
+        attn = scores.softmax(axis=-1)
+        ctx = (attn @ v).swapaxes(1, 2).reshape(B, T, d)            # merge heads
+        out = self.wo.forward(ctx)                                  # [B,T,d]
+        if two_d:
+            out = out.reshape(T, d)
+        return out
+
+    def parameters(self):
+        ps = []
+        for t in (self.wq, self.wk, self.wv, self.wo):
+            ps.extend(t.parameters())
+        return ps
+
+    def requantize(self):
+        for t in (self.wq, self.wk, self.wv, self.wo):
+            t.requantize()
+
+
+class RMSNorm:
+    def __init__(self, dim, eps=1e-5, name="rmsnorm"):
+        self.dim = int(dim); self.eps = float(eps); self.name = name
+        self.gain = Tensor(np.ones(dim, dtype=np.float32), requires_grad=True)
+
+    def __call__(self, x):
+        ms = (x * x).mean(axis=-1, keepdims=True)      # [...,1]
+        return (x / (ms + self.eps).sqrt()) * self.gain
+
+    def parameters(self):
+        return [self.gain]
+
+
+class LayerNorm:
+    def __init__(self, dim, eps=1e-5, name="layernorm"):
+        self.dim = int(dim); self.eps = float(eps); self.name = name
+        self.gain = Tensor(np.ones(dim, dtype=np.float32), requires_grad=True)
+        self.bias = Tensor(np.zeros(dim, dtype=np.float32), requires_grad=True)
+
+    def __call__(self, x):
+        mu = x.mean(axis=-1, keepdims=True)
+        xc = x - mu
+        var = (xc * xc).mean(axis=-1, keepdims=True)
+        return (xc / (var + self.eps).sqrt()) * self.gain + self.bias
+
+    def parameters(self):
+        return [self.gain, self.bias]

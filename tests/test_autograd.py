@@ -124,3 +124,91 @@ def test_ternary_linear_ste_matches_surrogate():
     assert np.allclose(w_t.grad, gw, atol=1e-2)
     assert np.allclose(x_t.grad, gx, atol=1e-2)
     assert np.allclose(b_t.grad, gb, atol=1e-2)
+
+
+def test_batched_matmul_grad():
+    rng = np.random.RandomState(6)
+    A = rng.randn(2, 3, 4).astype(np.float32)
+    B = rng.randn(2, 4, 5).astype(np.float32)
+
+    def fwd_np(arrs):
+        return (arrs[0] @ arrs[1]).sum()
+
+    a_t = Tensor(A.copy(), requires_grad=True)
+    b_t = Tensor(B.copy(), requires_grad=True)
+    (a_t @ b_t).sum().backward()
+    assert np.allclose(a_t.grad, _numeric_grad(fwd_np, [A.copy(), B.copy()], 0), atol=1e-2)
+    assert np.allclose(b_t.grad, _numeric_grad(fwd_np, [A.copy(), B.copy()], 1), atol=1e-2)
+
+
+def test_reshape_and_swapaxes_grad():
+    rng = np.random.RandomState(7)
+    A = rng.randn(2, 3, 4).astype(np.float32)
+    C = rng.randn(2, 4, 3).astype(np.float32)
+
+    def fwd_np(arrs):
+        a, c = arrs
+        return (np.swapaxes(a, 1, 2) * c).sum()
+
+    a_t = Tensor(A.copy(), requires_grad=True)
+    c_t = Tensor(C.copy(), requires_grad=True)
+    (a_t.swapaxes(1, 2) * c_t).sum().backward()
+    assert np.allclose(a_t.grad, _numeric_grad(fwd_np, [A.copy(), C.copy()], 0), atol=1e-2)
+
+    # reshape round-trips gradient
+    b_t = Tensor(A.copy(), requires_grad=True)
+    b_t.reshape(6, 4).sum().backward()
+    assert np.allclose(b_t.grad, np.ones_like(A), atol=1e-5)
+
+
+def test_mean_axis_sqrt_div_grads():
+    rng = np.random.RandomState(8)
+    A = rng.randn(3, 5).astype(np.float32)
+
+    def mean_np(arrs):
+        return (arrs[0].mean(axis=1) * np.arange(1, 4)).sum()
+
+    a_t = Tensor(A.copy(), requires_grad=True)
+    (a_t.mean(axis=1) * Tensor(np.arange(1, 4).astype(np.float32))).sum().backward()
+    assert np.allclose(a_t.grad, _numeric_grad(mean_np, [A.copy()], 0), atol=1e-2)
+
+    P = np.abs(rng.randn(3, 5).astype(np.float32)) + 0.5
+
+    def sqrt_np(arrs):
+        return np.sqrt(arrs[0]).sum()
+
+    p_t = Tensor(P.copy(), requires_grad=True)
+    p_t.sqrt().sum().backward()
+    assert np.allclose(p_t.grad, _numeric_grad(sqrt_np, [P.copy()], 0), atol=1e-2)
+
+    X = rng.randn(3, 5).astype(np.float32)
+    D = np.abs(rng.randn(3, 1).astype(np.float32)) + 0.5
+
+    def div_np(arrs):
+        return (arrs[0] / arrs[1]).sum()
+
+    x_t = Tensor(X.copy(), requires_grad=True)
+    d_t = Tensor(D.copy(), requires_grad=True)
+    (x_t / d_t).sum().backward()
+    assert np.allclose(x_t.grad, _numeric_grad(div_np, [X.copy(), D.copy()], 0), atol=1e-2)
+    assert np.allclose(d_t.grad, _numeric_grad(div_np, [X.copy(), D.copy()], 1), atol=1e-2)
+
+
+def test_ternary_linear_3d_ste():
+    rng = np.random.RandomState(9)
+    X = rng.randn(2, 3, 4).astype(np.float32)
+    W = rng.randn(5, 4).astype(np.float32)
+    b = rng.randn(5).astype(np.float32)
+
+    def fwd_np(arrs):
+        x, w, bb = arrs
+        return (x @ w.T + bb).sum()
+
+    x_t = Tensor(X.copy(), requires_grad=True)
+    w_t = Tensor(W.copy(), requires_grad=True)
+    b_t = Tensor(b.copy(), requires_grad=True)
+    y = ternary_linear(x_t, w_t, b_t)
+    assert y.shape == (2, 3, 5)
+    y.sum().backward()
+    assert np.allclose(w_t.grad, _numeric_grad(fwd_np, [X.copy(), W.copy(), b.copy()], 1), atol=1e-2)
+    assert np.allclose(x_t.grad, _numeric_grad(fwd_np, [X.copy(), W.copy(), b.copy()], 0), atol=1e-2)

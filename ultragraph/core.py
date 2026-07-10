@@ -150,9 +150,10 @@ class Tree:
         y = ternary_linear(x, self.adhoc["w_master"], self.adhoc["bias"])
         if self.act == "relu":
             y = y.relu()
-        # write node bytes from the (batch-averaged) int8 activation, for inspection/viz
-        acts = y.data if y.data.ndim == 1 else y.data.mean(axis=0)
-        q, _ = quantize_act_int8(acts)
+        # write node bytes from the int8 activation averaged over all leading (batch/
+        # sequence) dims, for inspection/viz
+        flat = y.data.reshape(-1, y.data.shape[-1]) if y.data.ndim >= 2 else y.data.reshape(1, -1)
+        q, _ = quantize_act_int8(flat.mean(axis=0))
         self.nodes[:] = q[: self.n_nodes]
         return y
 

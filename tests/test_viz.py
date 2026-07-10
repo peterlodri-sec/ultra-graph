@@ -34,3 +34,24 @@ def test_repr_svg_hooks():
     ug = mlp([4, 6, 3])
     assert ug._repr_svg_().startswith("<svg")
     assert ug.trees[0]._repr_svg_().startswith("<svg")
+
+
+def test_matplotlib_backend_smoke():
+    try:
+        import matplotlib  # noqa: F401
+    except ImportError:
+        return  # optional [viz] extra not installed; SVG path is always available
+    import os
+    import tempfile
+
+    ug = mlp([4, 8, 3])
+    ug.forward(Tensor(np.random.randn(2, 4).astype(np.float32)))
+    with tempfile.TemporaryDirectory() as d:
+        p1 = viz.tree_png(ug.trees[0], os.path.join(d, "t.png"))
+        p2 = viz.ultragraph_png(ug, os.path.join(d, "ug.png"))
+        p3 = viz.byte_heatmap_png(np.arange(-20, 20, dtype=np.int8), os.path.join(d, "h.png"))
+        sparse = Tree(3, "g")
+        sparse[0] >> sparse[1]
+        p4 = viz.tree_png(sparse, os.path.join(d, "s.png"))
+        for p in (p1, p2, p3, p4):
+            assert os.path.exists(p) and os.path.getsize(p) > 0
