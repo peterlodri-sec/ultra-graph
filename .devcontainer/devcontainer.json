@@ -1,0 +1,32 @@
+{
+  // ultragraph dev container: Python 3.12 + uv (astral) package manager.
+  "name": "ultragraph",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+
+  // Install uv via the devcontainers feature.
+  "features": {
+    "ghcr.io/va-h/devcontainers-features/uv:1": {}
+  },
+
+  // Sync dependencies including the optional `viz` extra (matplotlib).
+  "postCreateCommand": "uv sync --extra viz",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+          }
+        }
+      }
+    }
+  }
+}

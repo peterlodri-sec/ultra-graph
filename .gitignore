@@ -7,3 +7,4 @@ __pycache__/
 out/
 dist/
 examples/data/train.log
+examples/data/train4k.log
