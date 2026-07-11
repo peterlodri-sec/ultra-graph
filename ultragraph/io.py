@@ -98,3 +98,33 @@ def load(path: str) -> UltraGraph:
         ug.wire(ug.trees[ue["src"]], ug.trees[ue["dst"]], ue["kind"])
 
     return ug
+
+
+def save_params(modules, path: str) -> None:
+    """Save the fp32 parameters of an arbitrary list of modules (anything exposing
+    ``parameters() -> list[Tensor]``) — covers Attention/MoE/RMSNorm/LayerNorm/
+    Embedding/Tree, which the graph save/load does not fully serialize. Restore with
+    ``load_params`` onto the same architecture."""
+    arrays: dict[str, np.ndarray] = {}
+    for i, m in enumerate(modules):
+        params = m.parameters() if hasattr(m, "parameters") else []
+        for j, p in enumerate(params):
+            arrays[f"m{i}_p{j}"] = p.data
+    with open(path, "wb") as f:
+        np.savez(f, **arrays)
+
+
+def load_params(modules, path: str) -> None:
+    """Load parameters saved by ``save_params`` into the same module list (in place),
+    then re-quantize any module exposing ``requantize()``."""
+    data = np.load(path, allow_pickle=False)
+    for i, m in enumerate(modules):
+        params = m.parameters() if hasattr(m, "parameters") else []
+        for j, p in enumerate(params):
+            key = f"m{i}_p{j}"
+            if key in data.files:
+                p.data[...] = data[key]
+    for m in modules:
+        r = getattr(m, "requantize", None)
+        if callable(r):
+            r()

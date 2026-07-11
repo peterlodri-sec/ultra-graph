@@ -245,3 +245,41 @@ class Dropout:
 
     def parameters(self):
         return []
+
+
+class Sequential:
+    """Chain modules/callables: each output feeds the next. Aggregates parameters,
+    propagates train/eval (e.g. to Dropout), and re-quantizes ternary submodules."""
+
+    def __init__(self, *modules, name="sequential"):
+        self.modules = list(modules)
+        self.name = name
+
+    def __call__(self, x):
+        for m in self.modules:
+            x = m(x)
+        return x
+
+    def parameters(self):
+        ps = []
+        for m in self.modules:
+            if hasattr(m, "parameters"):
+                ps.extend(m.parameters())
+        return ps
+
+    def requantize(self):
+        for m in self.modules:
+            r = getattr(m, "requantize", None)
+            if callable(r):
+                r()
+
+    def train(self, mode: bool = True):
+        for m in self.modules:
+            if callable(getattr(m, "train", None)):
+                m.train(mode)  # recurse into nested Sequential
+            elif hasattr(m, "training"):
+                m.training = mode
+        return self
+
+    def eval(self):
+        return self.train(False)

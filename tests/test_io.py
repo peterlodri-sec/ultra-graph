@@ -68,3 +68,21 @@ def test_save_load_embedding_index_with_interleaved_module():
         ug2 = load(path)
     embs = [m for m in ug2.modules if isinstance(m, Embedding)]
     assert [(m.vocab, m.dim) for m in embs] == [(5, 3), (9, 2)]
+
+
+def test_save_load_params_roundtrip():
+    from ultragraph import MultiHeadAttention, RMSNorm, load_params, save_params
+
+    np.random.seed(0)
+    mha = MultiHeadAttention(8, 2)
+    norm = RMSNorm(8)
+    mods = [mha, norm]
+    orig = [p.data.copy() for p in mha.parameters() + norm.parameters()]
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "params.npz")
+        save_params(mods, path)
+        for p in mha.parameters() + norm.parameters():
+            p.data[...] = 0.0  # clobber
+        load_params(mods, path)
+    for p, o in zip(mha.parameters() + norm.parameters(), orig):
+        assert np.array_equal(p.data, o)

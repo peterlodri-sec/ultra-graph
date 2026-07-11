@@ -232,3 +232,24 @@ def test_cosine_schedule():
     assert lrs[2] < 1.0               # cosine decay begins
     assert lrs[-1] < 0.05             # ~min at the end
     assert opt.lr == lrs[-1]
+
+
+def test_sequential_chain_and_train_eval():
+    from ultragraph import Dropout, RMSNorm, Sequential, linear_tree
+
+    np.random.seed(0)
+    net = Sequential(
+        linear_tree(4, 8, "a", act="relu"),
+        RMSNorm(8),
+        Dropout(0.5),
+        linear_tree(8, 3, "b", act="none"),
+    )
+    x = Tensor(np.random.randn(2, 4).astype(np.float32))
+    net.eval()  # dropout off -> deterministic
+    o1 = net(x).data.copy()
+    o2 = net(x).data
+    assert o1.shape == (2, 3) and np.allclose(o1, o2)
+    assert len(net.parameters()) > 0
+    net.train()
+    net(x).sum().backward()
+    assert np.abs(net.modules[0].parameters()[0].grad).sum() > 0  # grads reach the chain head

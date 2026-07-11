@@ -157,6 +157,9 @@ class Tree:
         self.nodes[:] = q[: self.n_nodes]
         return y
 
+    def __call__(self, x: Tensor) -> Tensor:
+        return self.forward(x)
+
     def parameters(self) -> list[Tensor]:
         if self.kind == "dense":
             return [self.adhoc["w_master"], self.adhoc["bias"]]

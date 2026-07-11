@@ -9,6 +9,7 @@ from importlib.metadata import version as _pkg_version
 
 from .autograd import Tensor, ternary_linear
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
+from .io import load, load_params, save, save_params
 from .nn import (
     Attention,
     Dropout,
@@ -17,6 +18,7 @@ from .nn import (
     MoE,
     MultiHeadAttention,
     RMSNorm,
+    Sequential,
     linear_tree,
     mlp,
 )
@@ -24,11 +26,12 @@ from .optim import SGD, Adam, CosineSchedule
 from .pack import pack_ternary, unpack_ternary
 from .quant import dequant, quantize_act_int8, quantize_weight_ternary
 from .tokenize import ByteTokenizer
+from .vaked import compile_vaked, lower_graph
 
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.5.0"
+    __version__ = "0.6.0"
 
 __all__ = [
     "Tensor",
@@ -48,12 +51,19 @@ __all__ = [
     "LearnedPositionalEmbedding",
     "MoE",
     "Dropout",
+    "Sequential",
     "ByteTokenizer",
     "SGD",
     "Adam",
     "CosineSchedule",
     "pack_ternary",
     "unpack_ternary",
+    "save",
+    "load",
+    "save_params",
+    "load_params",
+    "lower_graph",
+    "compile_vaked",
     "quantize_weight_ternary",
     "quantize_act_int8",
     "dequant",

@@ -4,6 +4,19 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-07-11
+
+### Added
+- **`nn.Sequential`** — chain modules/callables; aggregates parameters, propagates
+  `train()`/`eval()` (e.g. to Dropout), and re-quantizes ternary submodules.
+- **Callable `Tree`** — `tree(x)` == `tree.forward(x)`, so trees compose in Sequential.
+- **`io.save_params` / `io.load_params`** — persist the fp32 parameters of any module
+  list (Attention, MoE, RMSNorm/LayerNorm, Embedding, Tree), closing the gap where
+  graph save/load did not serialize those modules.
+- **Optional vaked lowering** (`ultragraph.vaked`) — `lower_graph(nodes, edges)`
+  lowers any labeled property graph into a sparse byte-graph `Tree`; `compile_vaked`
+  bridges the vendored vakedc front-end (optional — requires an importable `vakedc`).
+
 ## [0.5.0] — 2026-07-11
 
 ### Added
@@ -81,6 +94,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.6.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.6.0
 [0.5.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.5.0
 [0.4.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.4.0
 [0.3.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.3.0
