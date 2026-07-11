@@ -13,6 +13,7 @@ MODULES = [
     "test_autograd",
     "test_core",
     "test_io",
+    "test_pack",
     "test_viz",
     "test_attention",
     "test_advanced",

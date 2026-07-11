@@ -150,3 +150,30 @@ class LayerNorm:
 
     def parameters(self):
         return [self.gain, self.bias]
+
+
+class LearnedPositionalEmbedding:
+    """Learnable position vectors added to a [..., T, dim] sequence (fp32, not ternary)."""
+
+    def __init__(self, max_len, dim, name="pos"):
+        self.max_len = int(max_len)
+        self.dim = int(dim)
+        self.name = name
+        self.table = Tensor(np.random.randn(self.max_len, dim).astype(np.float32) * 0.02, requires_grad=True)
+
+    def __call__(self, x):
+        t = x.shape[-2]
+        if t > self.max_len:
+            raise ValueError(f"sequence length {t} exceeds max_len {self.max_len}")
+        tbl = self.table
+        pos = Tensor(tbl.data[:t], requires_grad=tbl.requires_grad, _prev=(tbl,))
+
+        def _backward():
+            tbl.grad[:t] += pos.grad
+
+        if pos.requires_grad:
+            pos._backward = _backward
+        return x + pos  # broadcasts [t, dim] over any leading dims
+
+    def parameters(self):
+        return [self.table]

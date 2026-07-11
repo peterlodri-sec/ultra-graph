@@ -7,9 +7,12 @@ import numpy as np
 
 from .autograd import Tensor
 from .core import Embedding, Tree, UltraGraph
+from .pack import pack_ternary, unpack_ternary
 
 
-def save(ug: UltraGraph, path: str, include_masters: bool = True) -> None:
+def save(ug: UltraGraph, path: str, include_masters: bool = True, packed: bool = False) -> None:
+    """Save an ultra-graph. With ``packed=True``, dense ternary weights are stored
+    bit-packed (5 values/byte) for ~5x smaller files; ``load`` unpacks transparently."""
     meta = {"name": ug.name, "trees": [], "ultra_edges": [], "modules": []}
     arrays: dict[str, np.ndarray] = {}
 
@@ -26,7 +29,12 @@ def save(ug: UltraGraph, path: str, include_masters: bool = True) -> None:
         meta["trees"].append(entry)
         arrays[f"t{idx}_nodes"] = t.nodes
         if t.kind == "dense":
-            arrays[f"t{idx}_wq"] = t.wq
+            if packed:
+                arrays[f"t{idx}_wq"] = pack_ternary(t.wq)
+                entry["wq_packed"] = True
+                entry["wq_shape"] = list(t.wq.shape)
+            else:
+                arrays[f"t{idx}_wq"] = t.wq
             arrays[f"t{idx}_bias"] = t.adhoc["bias"].data
             if include_masters:
                 arrays[f"t{idx}_wmaster"] = t.adhoc["w_master"].data
@@ -63,7 +71,11 @@ def load(path: str) -> UltraGraph:
     for idx, entry in enumerate(meta["trees"]):
         if entry["kind"] == "dense":
             t = Tree.dense(entry["in_dim"], entry["out_dim"], name=entry["name"], act=entry["act"])
-            t.wq = data[f"t{idx}_wq"]
+            if entry.get("wq_packed"):
+                shape = tuple(entry["wq_shape"])
+                t.wq = unpack_ternary(data[f"t{idx}_wq"], int(np.prod(shape))).reshape(shape)
+            else:
+                t.wq = data[f"t{idx}_wq"]
             t.w_scale = float(entry["w_scale"])
             t.adhoc["bias"] = Tensor(data[f"t{idx}_bias"], requires_grad=True)
             if f"t{idx}_wmaster" in data.files:

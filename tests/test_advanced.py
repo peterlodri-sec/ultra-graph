@@ -71,6 +71,20 @@ def test_layernorm_property_and_grad():
     assert np.abs(norm.bias.grad).sum() > 0
 
 
+def test_positional_embedding_shape_and_grad():
+    from ultragraph import LearnedPositionalEmbedding
+
+    np.random.seed(0)
+    pos = LearnedPositionalEmbedding(16, 8)
+    out = pos(Tensor(np.zeros((2, 5, 8), dtype=np.float32)))
+    assert out.shape == (2, 5, 8)
+    # zero input -> output is the (position-dependent) table, so positions differ
+    assert not np.allclose(out.data[:, 0], out.data[:, 1])
+    out.sum().backward()
+    assert np.abs(pos.table.grad[:5]).sum() > 0     # used positions get gradient
+    assert np.all(pos.table.grad[5:] == 0)          # unused positions do not
+
+
 def test_adam_overfits_toy_classification():
     np.random.seed(0)
     n = 32

@@ -100,10 +100,11 @@ just viz         # render example SVGs
 ultragraph/quant.py     ternary + int8 quantization, STE
 ultragraph/autograd.py  numpy autograd tape; ternary_linear (STE)
 ultragraph/core.py      Node/Edge/Tree/UltraEdge/UltraGraph + dunder API
-ultragraph/nn.py        linear_tree, mlp, Attention, MultiHeadAttention, RMSNorm, LayerNorm
+ultragraph/nn.py        linear_tree, mlp, Attention, MultiHeadAttention, RMSNorm, LayerNorm, LearnedPositionalEmbedding
 ultragraph/optim.py     SGD + Adam over fp32 masters (grad clip), re-quantize after step
+ultragraph/pack.py      dense ternary bit-packing (5 values/byte, ~1.58-bit)
 ultragraph/viz.py       pure-SVG + optional matplotlib (micro / macro / byte-heatmap)
-ultragraph/io.py        byte-exact save / load
+ultragraph/io.py        byte-exact save / load (optional packed weights)
 ```
 
 Design spec: `docs/superpowers/specs/2026-07-10-ultragraph-design.md`.
