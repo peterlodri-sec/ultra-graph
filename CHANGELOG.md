@@ -4,17 +4,7 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
-### Added
-- GitHub Actions CI (`ruff` + `pytest` on Python 3.11–3.13).
-- `docs/references.md` — an Erdős graph-theory reading list.
-- `CONTRIBUTING.md`, `CHANGELOG.md`.
-
-### Changed
-- `ruff` config in `pyproject.toml`; cleaned up statements and import order.
-
-## [0.1.0] — 2026-07-10
+## [0.1.0] — 2026-07-11
 
 The byte-graph that is a 1-bit (ternary) LLM.
 
@@ -40,6 +30,8 @@ The byte-graph that is a 1-bit (ternary) LLM.
   `make_figures.py`.
 - **Tests** — numeric-gradient checks for every op, an attention causality proof,
   save/load byte-exactness, and end-to-end training; a dependency-free runner.
+- **Tooling & docs** — `ruff` (config in `pyproject.toml`), GitHub Actions CI
+  (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
+  `docs/references.md` (an Erdős graph-theory reading list).
 
-[Unreleased]: https://github.com/peterlodri-sec/ultra-graph/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.1.0
