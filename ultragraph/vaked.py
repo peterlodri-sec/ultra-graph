@@ -45,8 +45,8 @@ def lower_graph(nodes, edges, name: str = "vaked") -> Tree:
         tree[i] = _code(kind)
     labels = []
     for e in edges:
-        s = index.get(_get(e, "src"))
-        d = index.get(_get(e, "dst"))
+        s = index.get(_get(e, "src", _get(e, "source")))
+        d = index.get(_get(e, "dst", _get(e, "target")))
         if s is None or d is None:
             continue
         lab = str(_get(e, "label", ""))
@@ -64,16 +64,11 @@ def compile_vaked(source: str, filename: str = "<vaked>") -> Tree:
     ``ImportError`` with guidance when vakedc is unavailable or de-indented upstream.
     """
     try:
-        from vakedc import lexer, parser, resolve
+        from vakedc import parse_string
     except Exception as ex:  # noqa: BLE001 - optional dep; may be de-indented upstream
         raise ImportError(
             "vaked support needs an importable `vakedc` (vendored at the repo root; "
             "some upstream files are stored de-indented and must be fixed first): " + repr(ex)
         ) from ex
-    tokens = lexer.lex(source) if hasattr(lexer, "lex") else source
-    items = parser.parse(tokens, filename) if hasattr(parser, "parse") else parser.parse(source)
-    graph = resolve.build_graph(items, filename)
-    raw_nodes = getattr(graph, "nodes", [])
-    nodes = list(raw_nodes.values()) if isinstance(raw_nodes, dict) else list(raw_nodes)
-    edges = list(getattr(graph, "edges", []))
-    return lower_graph(nodes, edges, name=filename)
+    graph = parse_string(source, filename)  # tokenize -> parse -> resolve -> LPG
+    return lower_graph(graph.nodes, graph.edges, name=filename)

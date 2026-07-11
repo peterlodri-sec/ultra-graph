@@ -105,7 +105,7 @@ ultragraph/optim.py     SGD + Adam (grad clip, weight decay) + CosineSchedule, r
 ultragraph/pack.py      dense ternary bit-packing (5 values/byte, ~1.58-bit)
 ultragraph/tokenize.py  byte-level tokenizer (ByteTokenizer, vocab 256)
 ultragraph/vaked.py      optional vaked lowering (lower_graph, compile_vaked via vendored vakedc)
-ultragraph/viz.py       pure-SVG + optional matplotlib (micro / macro / byte-heatmap)
+ultragraph/viz/         svg.py (pure-SVG) + mpl.py (optional matplotlib) — micro / macro / byte-heatmap
 ultragraph/io.py        byte-exact save / load (optional packed weights); save_params/load_params
 ```
 

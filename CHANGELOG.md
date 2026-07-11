@@ -4,6 +4,18 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] — 2026-07-11
+
+### Changed
+- Split `viz.py` (491 loc) into a `viz/` package — `viz/svg.py` (pure-SVG) +
+  `viz/mpl.py` (optional matplotlib). Public API (`ultragraph.viz.*`) unchanged.
+  Every module is now ≤ ~340 loc (readability/maintainability).
+
+### Fixed
+- Re-indented the vendored `vakedc` `parser.py`/`graph.py`/`emit.py` so they compile.
+  Documented that upstream vakedc is de-indented **and lossy** (missing content), so
+  `compile_vaked` still needs the original vakedc; `lower_graph` works standalone.
+
 ## [0.6.0] — 2026-07-11
 
 ### Added
@@ -94,6 +106,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.6.1]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.6.1
 [0.6.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.6.0
 [0.5.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.5.0
 [0.4.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.4.0
