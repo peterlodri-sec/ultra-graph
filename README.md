@@ -1,5 +1,9 @@
 # ultragraph
 
+[![CI](https://github.com/peterlodri-sec/ultra-graph/actions/workflows/ci.yml/badge.svg)](https://github.com/peterlodri-sec/ultra-graph/actions/workflows/ci.yml)
+[![python](https://img.shields.io/badge/python-3.11%2B-00d4ff)](pyproject.toml)
+[![license](https://img.shields.io/badge/license-MIT-b48bff)](LICENSE)
+
 A pure-Python (+ numpy) **byte-graph that is a 1-bit (ternary) LLM**.
 
 > **genesis** `251e6ea` · themed after [pocoo.vaked.dev](https://pocoo.vaked.dev)
