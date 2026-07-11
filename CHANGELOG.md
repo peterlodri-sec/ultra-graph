@@ -4,6 +4,22 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-07-11
+
+### Added
+- **`nn.RoPE`** — rotary positional embeddings (no learned params). Encodes
+  *relative* position in the attention dot-product and takes an `offset=` so it
+  composes with a KV-cache; drop it into `MultiHeadAttention(..., rope=RoPE(...))`.
+- **KV-cache** — `MultiHeadAttention(x, cache={'k':…,'v':…})` returns
+  `(out, new_cache)` for incremental decoding. Because activation quant is
+  per-token, a cached step is byte-for-byte the full-forward result at that
+  position (see `tests/test_gpt.py`).
+- **`autograd.cat`** — concatenate `Tensor`s along an axis; grad splits back to
+  each input. The primitive behind RoPE's `rotate_half` and the KV-cache.
+- **`model.GPT` / `model.TransformerBlock`** — a ternary GPT (token embedding +
+  shared RoPE + N pre-norm blocks + ternary head) with `.generate(prompt, n_new,
+  temperature=, top_k=, seed=)` autoregressive sampling over the KV-cache.
+
 ## [0.6.1] — 2026-07-11
 
 ### Changed
@@ -106,6 +122,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.7.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.7.0
 [0.6.1]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.6.1
 [0.6.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.6.0
 [0.5.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.5.0

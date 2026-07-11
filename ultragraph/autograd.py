@@ -297,6 +297,27 @@ class Tensor:
             t._backward()
 
 
+def cat(tensors, axis: int = -1) -> Tensor:
+    """Concatenate ``tensors`` along ``axis``; grad splits back to each input."""
+    ts = [t if isinstance(t, Tensor) else Tensor(t) for t in tensors]
+    data = np.concatenate([t.data for t in ts], axis=axis)
+    req = any(t.requires_grad for t in ts)
+    out = Tensor(data, requires_grad=req, _prev=tuple(ts))
+    if req:
+        sizes = [t.data.shape[axis] for t in ts]
+
+        def _backward():
+            idx = 0
+            for t, s in zip(ts, sizes):
+                sl = [slice(None)] * data.ndim
+                sl[axis] = slice(idx, idx + s)
+                t.grad += out.grad[tuple(sl)]
+                idx += s
+
+        out._backward = _backward
+    return out
+
+
 def ternary_linear(x: Tensor, master_w: Tensor, bias: Tensor | None = None) -> Tensor:
     """Quantized linear layer: y = quant(x) @ quant(W).T + b, over n-D x.
 

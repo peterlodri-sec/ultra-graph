@@ -5,7 +5,7 @@ import math
 
 import numpy as np
 
-from .autograd import Tensor
+from .autograd import Tensor, cat
 from .core import Tree, UltraGraph
 
 
@@ -75,19 +75,25 @@ class Attention:
 
 
 class MultiHeadAttention:
-    def __init__(self, d_model, n_heads, causal=True, name="mha"):
+    def __init__(self, d_model, n_heads, causal=True, rope=None, name="mha"):
         assert d_model % n_heads == 0, "n_heads must divide d_model"
         self.d_model = int(d_model)
         self.n_heads = int(n_heads)
         self.d_head = d_model // n_heads
         self.causal = bool(causal)
+        self.rope = rope
+        if rope is not None:
+            assert self.d_head % 2 == 0, "d_head must be even for RoPE"
         self.name = name
         self.wq = Tree.dense(d_model, d_model, f"{name}.q", act="none")
         self.wk = Tree.dense(d_model, d_model, f"{name}.k", act="none")
         self.wv = Tree.dense(d_model, d_model, f"{name}.v", act="none")
         self.wo = Tree.dense(d_model, d_model, f"{name}.o", act="none")
 
-    def __call__(self, x):
+    def __call__(self, x, cache=None):
+        """x: [T, d] or [B, T, d]. With ``cache`` (a {'k','v'} dict) does
+        incremental decoding: returns ``(out, new_cache)`` and attends over the
+        cached keys/values plus the new tokens. Without a cache: returns ``out``."""
         two_d = (len(x.shape) == 2)
         if two_d:
             T, d = x.shape
@@ -97,16 +103,31 @@ class MultiHeadAttention:
         q = self.wq.forward(x).reshape(B, T, H, dh).swapaxes(1, 2)   # [B,H,T,dh]
         k = self.wk.forward(x).reshape(B, T, H, dh).swapaxes(1, 2)
         v = self.wv.forward(x).reshape(B, T, H, dh).swapaxes(1, 2)
-        scores = (q @ k.swapaxes(-1, -2)) * (1.0 / math.sqrt(dh))    # [B,H,T,T]
+        offset = 0
+        if cache is not None and cache.get("k") is not None:
+            offset = cache["k"].shape[-2]                            # past key length
+        if self.rope is not None:
+            q = self.rope(q, offset=offset)
+            k = self.rope(k, offset=offset)
+        new_cache = None
+        if cache is not None:
+            if cache.get("k") is not None:
+                k = cat([cache["k"], k], axis=-2)                    # prepend past K/V
+                v = cat([cache["v"], v], axis=-2)
+            new_cache = {"k": k, "v": v}
+        Tk = k.shape[-2]
+        scores = (q @ k.swapaxes(-1, -2)) * (1.0 / math.sqrt(dh))    # [B,H,T,Tk]
         if self.causal:
-            mask = np.triu(np.full((T, T), -1e9, dtype=np.float32), k=1)
+            qpos = np.arange(offset, offset + T)[:, None]           # abs query positions
+            kpos = np.arange(Tk)[None, :]
+            mask = np.where(kpos <= qpos, 0.0, -1e9).astype(np.float32)  # [T, Tk]
             scores = scores + Tensor(mask)                          # broadcasts over [B,H,·,·]
         attn = scores.softmax(axis=-1)
         ctx = (attn @ v).swapaxes(1, 2).reshape(B, T, d)            # merge heads
         out = self.wo.forward(ctx)                                  # [B,T,d]
         if two_d:
             out = out.reshape(T, d)
-        return out
+        return (out, new_cache) if cache is not None else out
 
     def parameters(self):
         ps = []
@@ -177,6 +198,45 @@ class LearnedPositionalEmbedding:
 
     def parameters(self):
         return [self.table]
+
+
+class RoPE:
+    """Rotary positional embedding (RoPE). Rotates pairs of feature dims by a
+    position-dependent angle, applied to a ``[..., T, dim]`` tensor (``dim`` even).
+
+    No learnable parameters. Encodes *relative* position directly in the
+    attention dot-product, so it generalizes past the primed length and plugs
+    into a KV-cache via the ``offset`` (absolute start position).
+    """
+
+    def __init__(self, dim, max_len=4096, base=10000.0, name="rope"):
+        assert dim % 2 == 0, "RoPE dim must be even"
+        self.dim = int(dim)
+        self.max_len = int(max_len)
+        self.name = name
+        half = self.dim // 2
+        inv_freq = 1.0 / (base ** (np.arange(half, dtype=np.float32) * 2.0 / self.dim))
+        pos = np.arange(self.max_len, dtype=np.float32)
+        freqs = np.outer(pos, inv_freq)                       # [max_len, half]
+        emb = np.concatenate([freqs, freqs], axis=-1)         # [max_len, dim]
+        self._cos = np.cos(emb).astype(np.float32)
+        self._sin = np.sin(emb).astype(np.float32)
+
+    def __call__(self, x, offset=0):
+        t = x.shape[-2]
+        if offset + t > self.max_len:
+            raise ValueError(f"RoPE positions {offset}+{t} exceed max_len {self.max_len}")
+        cos = Tensor(self._cos[offset:offset + t])            # [T, dim], broadcasts
+        sin = Tensor(self._sin[offset:offset + t])
+        return x * cos + self._rotate_half(x) * sin
+
+    @staticmethod
+    def _rotate_half(x):
+        h = x.shape[-1] // 2
+        return cat([-x[..., h:], x[..., :h]], axis=-1)
+
+    def parameters(self):
+        return []
 
 
 class MoE:

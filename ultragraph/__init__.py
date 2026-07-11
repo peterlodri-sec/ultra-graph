@@ -7,9 +7,10 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 
-from .autograd import Tensor, ternary_linear
+from .autograd import Tensor, cat, ternary_linear
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
 from .io import load, load_params, save, save_params
+from .model import GPT, TransformerBlock
 from .nn import (
     Attention,
     Dropout,
@@ -18,6 +19,7 @@ from .nn import (
     MoE,
     MultiHeadAttention,
     RMSNorm,
+    RoPE,
     Sequential,
     linear_tree,
     mlp,
@@ -31,11 +33,12 @@ from .vaked import compile_vaked, lower_graph
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.6.1"
+    __version__ = "0.7.0"
 
 __all__ = [
     "Tensor",
     "ternary_linear",
+    "cat",
     "Tree",
     "Edge",
     "NodeRef",
@@ -49,9 +52,12 @@ __all__ = [
     "RMSNorm",
     "LayerNorm",
     "LearnedPositionalEmbedding",
+    "RoPE",
     "MoE",
     "Dropout",
     "Sequential",
+    "TransformerBlock",
+    "GPT",
     "ByteTokenizer",
     "SGD",
     "Adam",

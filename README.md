@@ -85,6 +85,21 @@ from ultragraph import Embedding, MultiHeadAttention, RMSNorm, linear_tree, Adam
 #   x = x + mha(norm1(x));  x = x + ff2(ff1(norm2(x)))
 ```
 
+## A whole ternary GPT
+
+```python
+from ultragraph import GPT
+
+m = GPT(vocab=256, d_model=128, n_layers=4, n_heads=4, max_len=256)  # RoPE + KV-cache
+logits = m(ids)                       # ids [B, T] -> logits [B, T, vocab]
+out = m.generate([72, 105], n_new=64, temperature=0.8, top_k=40, seed=0)
+```
+
+`generate` decodes with a per-layer **KV-cache**; since activations are quantized
+per token, a cached step is byte-for-byte the full-forward result at that position.
+Positions come from **RoPE** (rotary embeddings) — relative, and `offset`-aware so
+they line up across cached steps.
+
 ## Tasks
 
 ```sh
@@ -100,7 +115,8 @@ just viz         # render example SVGs
 ultragraph/quant.py     ternary + int8 quantization, STE
 ultragraph/autograd.py  numpy autograd tape; ternary_linear (STE); exp/tanh/sigmoid/gelu/silu
 ultragraph/core.py      Node/Edge/Tree/UltraEdge/UltraGraph + dunder API
-ultragraph/nn.py        linear_tree, mlp, Attention, MultiHeadAttention, RMSNorm, LayerNorm, LearnedPositionalEmbedding, MoE, Dropout, Sequential
+ultragraph/nn.py        linear_tree, mlp, Attention, MultiHeadAttention, RoPE, RMSNorm, LayerNorm, LearnedPositionalEmbedding, MoE, Dropout, Sequential
+ultragraph/model.py     TransformerBlock + GPT (embedding + RoPE + pre-norm blocks + ternary head) with cached .generate()
 ultragraph/optim.py     SGD + Adam (grad clip, weight decay) + CosineSchedule, re-quantize after step
 ultragraph/pack.py      dense ternary bit-packing (5 values/byte, ~1.58-bit)
 ultragraph/tokenize.py  byte-level tokenizer (ByteTokenizer, vocab 256)
