@@ -1,5 +1,5 @@
 [project]
-name = "ultragraph"
+name = "ultragraph-1bit"
 version = "0.1.0"
 description = "A pure-Python (+numpy) byte-graph that is a 1-bit (ternary) LLM: dunder API, autograd, ultra-edges, visualization."
 readme = "README.md"

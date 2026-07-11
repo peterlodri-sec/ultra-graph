@@ -37,7 +37,9 @@ Right: a trained query projection's weight bytes, each ∈ {−1, 0, +1}.
 ## Install
 
 ```sh
-uv sync          # Python >=3.14, numpy, pytest
+pip install ultragraph-1bit    # then: import ultragraph
+# or from source (Python >=3.11):
+uv sync
 ```
 
 ## Dunder API

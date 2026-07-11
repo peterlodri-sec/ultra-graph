@@ -656,7 +656,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ultragraph"
+name = "ultragraph-1bit"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
