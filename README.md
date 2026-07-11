@@ -98,8 +98,17 @@ out = m.generate([72, 105], n_new=64, temperature=0.8, top_k=40, top_p=0.9,
 
 for tok in m.generate([72, 105], n_new=64, temperature=0.8, stream=True):
     print(tok, end=" ", flush=True)   # token-by-token
-m.save("gpt.npz")                     # persist; reload onto the same architecture
+m.save("gpt.npz")                     # fp32 masters; reload onto the same architecture
+
+# a true 1-bit-on-disk checkpoint: bit-packed ternary bytes, no fp32 masters.
+m.save_deployed("gpt.q.npz")          # ~10x smaller, inference-only
+deployed = GPT.load_deployed("gpt.q.npz")   # byte-exact logits, runs from the trits
 ```
+
+The deployed checkpoint stores weights at their true **~1.6 bits/weight** density (5
+ternary values per byte) plus the tiny fp32 pieces (embedding, norm gains, biases).
+On an 858k-param model that's **3.4 MB → 334 KB**, and `deployed(ids)` gives logits
+identical to the trained model — `Tree.forward` runs straight from the stored bytes.
 
 `generate` decodes with a per-layer **KV-cache**; since activations are quantized
 per token, a cached step is byte-for-byte the full-forward result at that position.

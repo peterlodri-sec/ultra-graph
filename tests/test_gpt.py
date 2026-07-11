@@ -55,6 +55,31 @@ def test_gpt_save_load_roundtrip():
         assert np.allclose(m2(ids).data, before, atol=1e-5)                # identical after
 
 
+def test_gpt_deployed_is_byte_exact_and_smaller():
+    m = _tiny_gpt()
+    ids = np.array([[2, 5, 7, 1, 3]], dtype=np.int64)
+    ref = m(ids).data
+    with tempfile.TemporaryDirectory() as d:
+        full = os.path.join(d, "full.npz")
+        dep = os.path.join(d, "dep.npz")
+        m.save(full)                      # fp32 masters
+        m.save_deployed(dep, packed=True)  # ternary bytes, packed
+        dm = GPT.load_deployed(dep)
+        assert all(t.deployed for t in dm._dense_trees())   # no masters -> deployed path
+        assert np.allclose(dm(ids).data, ref, atol=1e-5)    # byte-exact vs trained
+        assert os.path.getsize(dep) < os.path.getsize(full) * 0.5  # much smaller
+
+
+def test_gpt_deployed_generation_matches():
+    m = _tiny_gpt()
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "dep.npz")
+        m.save_deployed(p)
+        dm = GPT.load_deployed(p)
+        assert dm.generate([1, 2, 3], n_new=8, temperature=0.0) == \
+            m.generate([1, 2, 3], n_new=8, temperature=0.0)
+
+
 def test_gpt_stream_matches_batch():
     m = _tiny_gpt()
     ref = m.generate([4, 2, 1], n_new=6, temperature=0.0)

@@ -4,6 +4,21 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] — 2026-07-11
+
+### Added
+- **Deployed inference from ternary bytes** — a dense `Tree` with no fp32 master now
+  runs `forward` straight from its stored ternary weight bytes (`autograd.ternary_forward`,
+  shared numerics with `ternary_linear` → byte-exact). `Tree.deployed` reports the mode.
+- **`GPT.save_deployed` / `GPT.load_deployed`** — an inference-only checkpoint holding
+  the bit-packed ternary weights (~1.6 bits/weight) plus the small fp32 pieces
+  (embedding, norm gains, biases). **~10× smaller** than the fp32-master `save`
+  (e.g. 3.4 MB → 334 KB on an 858k-param model) and byte-exact at inference.
+- **`GPT.n_params()`** — trainable scalar count.
+
+### Changed
+- `Tree.parameters()` / `requantize()` no-op cleanly for a master-less (deployed) tree.
+
 ## [0.9.0] — 2026-07-11
 
 ### Added
@@ -145,6 +160,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.10.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.10.0
 [0.9.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.9.0
 [0.8.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.8.0
 [0.7.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.7.0

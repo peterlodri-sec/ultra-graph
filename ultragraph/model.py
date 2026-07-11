@@ -57,6 +57,7 @@ class GPT:
         self.n_layers = int(n_layers)
         self.n_heads = int(n_heads)
         self.max_len = int(max_len)
+        self.mlp_ratio = int(mlp_ratio)
         self.name = name
         self.embed = Embedding(vocab, d_model, name=f"{name}.embed")
         self.rope = RoPE(d_model // n_heads, max_len=max_len, name=f"{name}.rope")
@@ -99,6 +100,75 @@ class GPT:
         from .io import load_params
         load_params([self], path)
         return self
+
+    def n_params(self):
+        """Total trainable scalar count (fp32 masters + biases + norm gains + embed)."""
+        return int(sum(p.data.size for p in self.parameters()))
+
+    def _dense_trees(self):
+        """Every ternary Tree in the model, in a stable order (save/load rely on it)."""
+        ts = []
+        for b in self.blocks:
+            ts += [b.attn.wq, b.attn.wk, b.attn.wv, b.attn.wo, b.ff1, b.ff2]
+        ts.append(self.head)
+        return ts
+
+    def _fp32_gains(self):
+        """The tiny full-precision tensors (embedding + norm gains), named + ordered."""
+        g = [("embed", self.embed.table)]
+        for i, b in enumerate(self.blocks):
+            g += [(f"n1_{i}", b.norm1.gain), (f"n2_{i}", b.norm2.gain)]
+        g.append(("nf", self.norm.gain))
+        return g
+
+    def save_deployed(self, path, packed=True):
+        """Save the *deployed* model: ternary weight bytes (bit-packed at ~1.6
+        bits/weight when ``packed``) plus the small fp32 pieces (embedding, norm
+        gains, biases). No fp32 masters — smaller, and inference-only. Restore with
+        :meth:`load_deployed`; forward then runs straight from the ternary bytes."""
+        import json
+
+        from .pack import pack_ternary
+        hp = {"vocab": self.vocab, "d_model": self.d_model, "n_layers": self.n_layers,
+              "n_heads": self.n_heads, "max_len": self.max_len, "mlp_ratio": self.mlp_ratio}
+        meta = {"hp": hp, "packed": bool(packed), "trees": []}
+        arrays = {}
+        for i, t in enumerate(self._dense_trees()):
+            entry = {"w_scale": float(t.w_scale), "shape": list(t.wq.shape), "packed": bool(packed)}
+            arrays[f"t{i}_wq"] = pack_ternary(t.wq) if packed else t.wq
+            arrays[f"t{i}_bias"] = t.adhoc["bias"].data
+            meta["trees"].append(entry)
+        for name, ten in self._fp32_gains():
+            arrays[f"f_{name}"] = ten.data
+        with open(path, "wb") as fh:
+            np.savez(fh, __meta__=np.array(json.dumps(meta)), **arrays)
+
+    @classmethod
+    def load_deployed(cls, path):
+        """Rebuild an inference-only GPT from a :meth:`save_deployed` checkpoint (no
+        fp32 masters). Its forward runs from the ternary bytes — byte-exact versus
+        the trained model. Returns the model."""
+        import json
+
+        from .autograd import Tensor
+        from .pack import unpack_ternary
+        data = np.load(path, allow_pickle=False)
+        meta = json.loads(str(data["__meta__"]))
+        hp = meta["hp"]
+        m = cls(hp["vocab"], hp["d_model"], hp["n_layers"], hp["n_heads"],
+                max_len=hp["max_len"], mlp_ratio=hp["mlp_ratio"])
+        for i, (t, entry) in enumerate(zip(m._dense_trees(), meta["trees"])):
+            shape = tuple(entry["shape"])
+            if entry.get("packed"):
+                t.wq = unpack_ternary(data[f"t{i}_wq"], int(np.prod(shape))).reshape(shape)
+            else:
+                t.wq = data[f"t{i}_wq"]
+            t.w_scale = float(entry["w_scale"])
+            t.adhoc["bias"] = Tensor(data[f"t{i}_bias"])
+            t.adhoc["w_master"] = None       # -> deployed path in Tree.forward
+        for name, ten in m._fp32_gains():
+            ten.data[...] = data[f"f_{name}"]
+        return m
 
     # -- generation -----------------------------------------------------------
     def generate(self, prompt, n_new, temperature=1.0, top_k=None, top_p=None,

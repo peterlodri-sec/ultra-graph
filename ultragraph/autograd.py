@@ -318,6 +318,32 @@ def cat(tensors, axis: int = -1) -> Tensor:
     return out
 
 
+def _ternary_affine(xd: np.ndarray, wq: np.ndarray, w_scale, bias_data=None) -> np.ndarray:
+    """The deployed-byte forward numerics: per-token int8 activation quant, int
+    matmul against the ternary weight bytes, rescale by both scales, add bias.
+    Shared by the trainable ``ternary_linear`` and the master-free ``ternary_forward``."""
+    amax = np.max(np.abs(xd), axis=-1, keepdims=True)
+    amax = np.where(np.isfinite(amax), amax, 0.0)
+    sx = amax / 127.0 + EPS  # [..., 1]
+    xq = np.clip(np.round(np.nan_to_num(xd / sx)), -127, 127).astype(np.int8)
+    acc = xq.astype(np.int32) @ wq.T.astype(np.int32)  # [..., out]
+    y = acc.astype(np.float32) * sx.astype(np.float32) * np.float32(w_scale)
+    if bias_data is not None:
+        y = y + bias_data
+    return y
+
+
+def ternary_forward(x: Tensor, wq: np.ndarray, w_scale, bias: Tensor | None = None) -> Tensor:
+    """Inference-only linear from stored ternary bytes — no fp32 master, no grad.
+
+    Numerically identical to ``ternary_linear`` on the same weights (both route
+    through :func:`_ternary_affine`), so a model deployed from packed ternary bytes
+    produces byte-exact logits versus the trained fp32-master model."""
+    y = _ternary_affine(np.asarray(x.data, dtype=np.float32), wq, w_scale,
+                        None if bias is None else bias.data)
+    return Tensor(y)  # detached: deployed inference carries no tape
+
+
 def ternary_linear(x: Tensor, master_w: Tensor, bias: Tensor | None = None) -> Tensor:
     """Quantized linear layer: y = quant(x) @ quant(W).T + b, over n-D x.
 
@@ -329,15 +355,8 @@ def ternary_linear(x: Tensor, master_w: Tensor, bias: Tensor | None = None) -> T
     Shapes: x [..., in], master_w [out, in], bias [out] -> y [..., out].
     """
     wq, sw = quantize_weight_ternary(master_w.data)
-    xd = np.asarray(x.data, dtype=np.float32)
-    amax = np.max(np.abs(xd), axis=-1, keepdims=True)
-    amax = np.where(np.isfinite(amax), amax, 0.0)
-    sx = amax / 127.0 + EPS  # [..., 1]
-    xq = np.clip(np.round(np.nan_to_num(xd / sx)), -127, 127).astype(np.int8)
-    acc = xq.astype(np.int32) @ wq.T.astype(np.int32)  # [..., out]
-    y = acc.astype(np.float32) * sx.astype(np.float32) * np.float32(sw)
-    if bias is not None:
-        y = y + bias.data
+    y = _ternary_affine(np.asarray(x.data, dtype=np.float32), wq, sw,
+                        None if bias is None else bias.data)
 
     parents = [x, master_w] + ([bias] if bias is not None else [])
     req = any(p.requires_grad for p in parents)

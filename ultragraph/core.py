@@ -15,7 +15,7 @@ from typing import Iterator
 
 import numpy as np
 
-from .autograd import Tensor, ternary_linear
+from .autograd import Tensor, ternary_forward, ternary_linear
 from .quant import quantize_act_int8, quantize_weight_ternary
 
 
@@ -136,9 +136,15 @@ class Tree:
         return np.array(self._eval, dtype=np.int8)
 
     # -- dense compute --------------------------------------------------------
+    @property
+    def deployed(self) -> bool:
+        """True for a dense tree with no fp32 master — inference-only, runs straight
+        from the stored ternary bytes (see ``GPT.load_deployed``)."""
+        return self.kind == "dense" and self.adhoc.get("w_master") is None
+
     def requantize(self) -> None:
         """Refresh the ternary weight bytes from the fp32 master (dense only)."""
-        if self.kind != "dense":
+        if self.kind != "dense" or self.adhoc.get("w_master") is None:
             return
         wq, scale = quantize_weight_ternary(self.adhoc["w_master"].data)
         self.wq = wq
@@ -147,7 +153,10 @@ class Tree:
     def forward(self, x: Tensor) -> Tensor:
         if self.kind != "dense":
             raise NotImplementedError("forward is defined for dense trees in the MVP")
-        y = ternary_linear(x, self.adhoc["w_master"], self.adhoc["bias"])
+        if self.deployed:
+            y = ternary_forward(x, self.wq, self.w_scale, self.adhoc.get("bias"))
+        else:
+            y = ternary_linear(x, self.adhoc["w_master"], self.adhoc["bias"])
         if self.act == "relu":
             y = y.relu()
         # write node bytes from the int8 activation averaged over all leading (batch/
@@ -161,7 +170,7 @@ class Tree:
         return self.forward(x)
 
     def parameters(self) -> list[Tensor]:
-        if self.kind == "dense":
+        if self.kind == "dense" and not self.deployed:
             return [self.adhoc["w_master"], self.adhoc["bias"]]
         return []
 
