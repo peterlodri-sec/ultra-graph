@@ -13,7 +13,6 @@ from ultragraph import (
     Embedding,
     MultiHeadAttention,
     RMSNorm,
-    Tensor,
     UltraGraph,
     linear_tree,
 )
@@ -31,7 +30,6 @@ def main() -> None:
     ids = np.array([stoi[c] for c in text], dtype=np.int64)
     seqs = np.stack([ids[i : i + T + 1] for i in range(len(ids) - T)])
     inputs, targets = seqs[:, :-1], seqs[:, 1:]
-    B = inputs.shape[0]
 
     emb = Embedding(vocab, d_model, "emb")
     n1 = RMSNorm(d_model, name="n1")

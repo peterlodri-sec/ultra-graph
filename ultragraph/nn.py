@@ -77,9 +77,11 @@ class Attention:
 class MultiHeadAttention:
     def __init__(self, d_model, n_heads, causal=True, name="mha"):
         assert d_model % n_heads == 0, "n_heads must divide d_model"
-        self.d_model = int(d_model); self.n_heads = int(n_heads)
+        self.d_model = int(d_model)
+        self.n_heads = int(n_heads)
         self.d_head = d_model // n_heads
-        self.causal = bool(causal); self.name = name
+        self.causal = bool(causal)
+        self.name = name
         self.wq = Tree.dense(d_model, d_model, f"{name}.q", act="none")
         self.wk = Tree.dense(d_model, d_model, f"{name}.k", act="none")
         self.wv = Tree.dense(d_model, d_model, f"{name}.v", act="none")
@@ -119,7 +121,9 @@ class MultiHeadAttention:
 
 class RMSNorm:
     def __init__(self, dim, eps=1e-5, name="rmsnorm"):
-        self.dim = int(dim); self.eps = float(eps); self.name = name
+        self.dim = int(dim)
+        self.eps = float(eps)
+        self.name = name
         self.gain = Tensor(np.ones(dim, dtype=np.float32), requires_grad=True)
 
     def __call__(self, x):
@@ -132,7 +136,9 @@ class RMSNorm:
 
 class LayerNorm:
     def __init__(self, dim, eps=1e-5, name="layernorm"):
-        self.dim = int(dim); self.eps = float(eps); self.name = name
+        self.dim = int(dim)
+        self.eps = float(eps)
+        self.name = name
         self.gain = Tensor(np.ones(dim, dtype=np.float32), requires_grad=True)
         self.bias = Tensor(np.zeros(dim, dtype=np.float32), requires_grad=True)
 

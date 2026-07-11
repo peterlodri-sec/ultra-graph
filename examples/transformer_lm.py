@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ultragraph import Embedding, SGD, UltraGraph, linear_tree
+from ultragraph import SGD, Embedding, UltraGraph, linear_tree
 from ultragraph.nn import Attention
 
 

@@ -96,10 +96,12 @@ class Adam:
             m = self._m.get(id(p))
             v = self._v.get(id(p))
             if m is None:
-                m = np.zeros_like(p.data); v = np.zeros_like(p.data)
+                m = np.zeros_like(p.data)
+                v = np.zeros_like(p.data)
             m = self.b1 * m + (1.0 - self.b1) * g
             v = self.b2 * v + (1.0 - self.b2) * (g * g)
-            self._m[id(p)] = m; self._v[id(p)] = v
+            self._m[id(p)] = m
+            self._v[id(p)] = v
             mhat = m / (1.0 - self.b1 ** self._t)
             vhat = v / (1.0 - self.b2 ** self._t)
             p.data -= self.lr * mhat / (np.sqrt(vhat) + self.eps)

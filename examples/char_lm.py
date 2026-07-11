@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ultragraph import Embedding, SGD, Tensor, mlp
+from ultragraph import SGD, Embedding, mlp
 
 
 def main() -> None:

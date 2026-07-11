@@ -11,7 +11,7 @@ dependencies = ["numpy>=2.0"]
 viz = ["matplotlib>=3.8"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.6"]
 
 [build-system]
 requires = ["hatchling"]
@@ -26,3 +26,9 @@ addopts = "-q"
 
 [tool.uv]
 package = true
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = ["F", "E7", "E9", "I"]

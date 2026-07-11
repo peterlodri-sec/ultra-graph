@@ -14,7 +14,7 @@ import os
 
 import numpy as np
 
-from ultragraph import Tree, Tensor, mlp, viz
+from ultragraph import Tensor, Tree, mlp, viz
 
 
 def main() -> None:
