@@ -49,6 +49,14 @@ def test_mesh_rejects_bad_top_k():
         Mesh(_experts(3), vocab=16, top_k=5)          # > n_experts
 
 
+def test_mesh_generate_greedy_deterministic():
+    m = Mesh(_experts(2), vocab=16)
+    out = m.generate([1, 2, 3], n_new=6, temperature=0.0)
+    assert len(out) == 9 and out[:3] == [1, 2, 3]
+    assert m.generate([1, 2, 3], n_new=6, temperature=0.0) == out   # deterministic
+    assert all(0 <= t < 16 for t in out)
+
+
 def test_mesh_overfits_toy_sequence():
     m = Mesh(_experts(2), vocab=16)
     opt = Adam(m, lr=0.02, clip=1.0)

@@ -76,9 +76,10 @@ for _ in range(300):
 ```
 
 See `examples/char_lm.py` (MLP LM), `examples/transformer_lm.py` (single-head attention),
-`examples/mini_gpt.py` (batched **multi-head** attention + **RMSNorm** + **Adam**), and
-`examples/gpt_lm.py` (the whole stack: **`ByteTokenizer` → `GPT` → train → stream**) for
-end-to-end char/byte-level ternary language models.
+`examples/mini_gpt.py` (batched **multi-head** attention + **RMSNorm** + **Adam**),
+`examples/gpt_lm.py` (the whole stack: **`ByteTokenizer` → `GPT` → train → stream**), and
+`examples/mesh_lm.py` (a **`Mesh`** of GPT experts, gradient accumulation, joint decode)
+for end-to-end char/byte-level ternary language models.
 
 ```python
 from ultragraph import Embedding, MultiHeadAttention, RMSNorm, linear_tree, Adam
@@ -118,6 +119,7 @@ from ultragraph import GPT, Mesh
 experts = [GPT(vocab=256, d_model=64, n_layers=2, n_heads=4) for _ in range(4)]
 mesh = Mesh(experts, vocab=256, top_k=2)     # a learned router mixes full models
 logits = mesh(ids)                           # Σ_e gate(ids)_e · expert_e(ids)
+text = mesh.generate([72, 105], n_new=64, temperature=0.8)   # joint KV-cached decode
 ```
 
 `Mesh` lifts `nn.MoE`'s routing to whole networks: a small ternary router reads the
@@ -146,7 +148,7 @@ ultragraph/autograd.py  numpy autograd tape; ternary_linear (STE); exp/tanh/sigm
 ultragraph/core.py      Node/Edge/Tree/UltraEdge/UltraGraph + dunder API
 ultragraph/nn.py        linear_tree, mlp, Attention, MultiHeadAttention, RoPE, RMSNorm, LayerNorm, LearnedPositionalEmbedding, MoE, Dropout, Sequential
 ultragraph/model.py     TransformerBlock + GPT (RoPE + KV-cache + .generate + save_deployed) + Mesh (mixture of full models)
-ultragraph/optim.py     SGD + Adam (grad clip, weight decay) + CosineSchedule, re-quantize after step
+ultragraph/optim.py     SGD + Adam (grad clip, weight decay, gradient accumulation) + CosineSchedule
 ultragraph/pack.py      dense ternary bit-packing (5 values/byte, ~1.58-bit)
 ultragraph/tokenize.py  byte-level tokenizer (ByteTokenizer, vocab 256)
 ultragraph/vaked.py      optional vaked lowering (lower_graph, compile_vaked via vendored vakedc)

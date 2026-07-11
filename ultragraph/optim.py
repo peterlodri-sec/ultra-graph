@@ -15,15 +15,23 @@ class SGD:
 
     ``target`` may be anything exposing ``parameters() -> list[Tensor]`` (and,
     optionally, ``requantize()``), e.g. an ``UltraGraph``.
+
+    With ``accum_steps > 1`` the optimizer accumulates gradients across that many
+    ``step()`` calls, then applies one averaged update and zeroes the grads itself
+    (so the micro-batch loop should *not* call ``zero_grad``). ``accum_steps=1``
+    (default) is the classic behavior: every ``step()`` updates, and you manage
+    ``zero_grad`` yourself.
     """
 
     def __init__(self, target, lr: float = 0.1, momentum: float = 0.0, clip: float | None = None,
-                 weight_decay: float = 0.0):
+                 weight_decay: float = 0.0, accum_steps: int = 1):
         self.target = target
         self.lr = float(lr)
         self.momentum = float(momentum)
         self.clip = None if clip is None else float(clip)
         self.weight_decay = float(weight_decay)
+        self.accum_steps = max(1, int(accum_steps))
+        self._accum = 0
         if hasattr(target, "parameters"):
             self._params = target.parameters()
         else:
@@ -42,6 +50,13 @@ class SGD:
                 p.grad *= scale
 
     def step(self) -> None:
+        self._accum += 1
+        if self._accum < self.accum_steps:
+            return  # keep accumulating grads over micro-batches; do not update yet
+        if self.accum_steps > 1:
+            inv = 1.0 / self.accum_steps
+            for p in self._params:
+                p.grad *= inv  # average the accumulated micro-batch grads
         if self.clip is not None:
             self._clip_grads()
         for p in self._params:
@@ -57,6 +72,9 @@ class SGD:
                 p.data -= self.lr * g
         if callable(self._requantize):
             self._requantize()
+        self._accum = 0
+        if self.accum_steps > 1:
+            self.zero_grad()  # reset the accumulation window
 
     def zero_grad(self) -> None:
         for p in self._params:
@@ -66,13 +84,16 @@ class SGD:
 class Adam:
     """Adam over the fp32 master weights; re-quantizes the target after each step."""
 
-    def __init__(self, target, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, clip=None, weight_decay=0.0):
+    def __init__(self, target, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, clip=None, weight_decay=0.0,
+                 accum_steps=1):
         self.target = target
         self.lr = float(lr)
         self.b1, self.b2 = float(betas[0]), float(betas[1])
         self.eps = float(eps)
         self.clip = None if clip is None else float(clip)
         self.weight_decay = float(weight_decay)
+        self.accum_steps = max(1, int(accum_steps))
+        self._accum = 0
         if hasattr(target, "parameters"):
             self._params = target.parameters()
         else:
@@ -93,6 +114,13 @@ class Adam:
                 p.grad *= scale
 
     def step(self):
+        self._accum += 1
+        if self._accum < self.accum_steps:
+            return  # accumulate grads over micro-batches; update on the last one
+        if self.accum_steps > 1:
+            inv = 1.0 / self.accum_steps
+            for p in self._params:
+                p.grad *= inv  # average the accumulated micro-batch grads
         if self.clip is not None:
             self._clip_grads()
         self._t += 1
@@ -112,6 +140,9 @@ class Adam:
             p.data -= self.lr * mhat / (np.sqrt(vhat) + self.eps)
         if callable(self._requantize):
             self._requantize()
+        self._accum = 0
+        if self.accum_steps > 1:
+            self.zero_grad()  # reset the accumulation window
 
     def zero_grad(self):
         for p in self._params:

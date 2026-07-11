@@ -190,6 +190,42 @@ class GPT:
         ids.extend(it)
         return ids
 
+    def generate_batch(self, prompts, n_new, temperature=1.0, top_k=None, top_p=None,
+                       repetition_penalty=1.0, stop=None, seed=None):
+        """Batched decode over ``prompts`` ``[B, T]`` (equal-length) with one shared
+        per-layer KV-cache. Each sequence samples independently and stops on its own
+        ``stop`` token. Returns a list of ``B`` id lists (prompt + generated, truncated
+        at the first stop token)."""
+        prompts = np.asarray(prompts, dtype=np.int64)
+        if prompts.ndim == 1:
+            prompts = prompts[None, :]
+        if prompts.ndim != 2:
+            raise ValueError("generate_batch expects equal-length prompts shaped [B, T]")
+        b = prompts.shape[0]
+        rng = np.random.default_rng(seed)
+        stops = set() if stop is None else ({int(stop)} if isinstance(stop, int) else {int(s) for s in stop})
+        caches = [{"k": None, "v": None} for _ in self.blocks]
+        logits = self._decode(prompts, caches)          # [B, T, vocab]
+        outs = [list(prompts[i]) for i in range(b)]
+        hist = [list(prompts[i]) for i in range(b)]
+        done = [False] * b
+        for _ in range(int(n_new)):
+            nxt = np.empty((b, 1), dtype=np.int64)
+            for i in range(b):
+                nxt[i, 0] = self._sample(logits[i, -1], temperature, top_k, top_p,
+                                         repetition_penalty, hist[i], rng)
+            for i in range(b):
+                tok = int(nxt[i, 0])
+                hist[i].append(tok)
+                if not done[i]:
+                    outs[i].append(tok)
+                    if tok in stops:
+                        done[i] = True
+            if all(done):
+                break
+            logits = self._decode(nxt, caches)           # feed one token per row -> [B, 1, vocab]
+        return outs
+
     def _stream(self, prompt_ids, n_new, temperature, top_k, top_p, rep_pen, stops, seed):
         rng = np.random.default_rng(seed)
         caches = [{"k": None, "v": None} for _ in self.blocks]
@@ -312,3 +348,30 @@ class Mesh:
 
     def n_params(self):
         return int(sum(p.data.size for p in self.parameters()))
+
+    def generate(self, prompt, n_new, temperature=1.0, top_k=None, top_p=None,
+                 repetition_penalty=1.0, stop=None, seed=None):
+        """Joint autoregressive decoding across the mixture. At each step every
+        expert's cached next-token logits are mixed by the (re-evaluated) router gate,
+        then sampled once. Requires GPT-like experts (with ``.blocks`` / ``._decode``).
+        Returns ``prompt + generated`` ids."""
+        if not all(hasattr(e, "blocks") and hasattr(e, "_decode") for e in self.experts):
+            raise TypeError("Mesh.generate requires GPT-like experts (with .blocks and ._decode)")
+        ids = [int(t) for t in np.asarray(prompt, dtype=np.int64).reshape(-1)]
+        if not ids:
+            raise ValueError("prompt must be non-empty")
+        stops = set() if stop is None else ({int(stop)} if isinstance(stop, int) else {int(s) for s in stop})
+        rng = np.random.default_rng(seed)
+        caches = [[{"k": None, "v": None} for _ in e.blocks] for e in self.experts]
+        per = [self.experts[e]._decode(np.array(ids, dtype=np.int64)[None, :], caches[e])
+               for e in range(self.n_experts)]                     # each [1, T, vocab]
+        for _ in range(int(n_new)):
+            gate = self._gate(np.array(ids, dtype=np.int64)[None, :]).data[0]  # [n_experts]
+            mixed = sum(gate[e] * per[e][0, -1] for e in range(self.n_experts))  # [vocab]
+            nxt = GPT._sample(mixed, temperature, top_k, top_p, repetition_penalty, ids, rng)
+            ids.append(nxt)
+            if nxt in stops:
+                break
+            per = [self.experts[e]._decode(np.array([[nxt]], dtype=np.int64), caches[e])
+                   for e in range(self.n_experts)]
+        return ids

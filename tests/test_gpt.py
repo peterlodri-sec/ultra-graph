@@ -80,6 +80,24 @@ def test_gpt_deployed_generation_matches():
             m.generate([1, 2, 3], n_new=8, temperature=0.0)
 
 
+def test_gpt_generate_batch_matches_single():
+    m = _tiny_gpt()
+    prompts = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64)
+    batch = m.generate_batch(prompts, n_new=5, temperature=0.0)
+    assert len(batch) == 2 and all(len(r) == 8 for r in batch)
+    # each row is independent -> matches single-sequence greedy on that prompt
+    assert batch[0] == m.generate([1, 2, 3], n_new=5, temperature=0.0)
+    assert batch[1] == m.generate([4, 5, 6], n_new=5, temperature=0.0)
+
+
+def test_gpt_generate_batch_stop_per_sequence():
+    m = _tiny_gpt()
+    full = m.generate([1, 2, 3], n_new=6, temperature=0.0)
+    sid = full[3]
+    batch = m.generate_batch(np.array([[1, 2, 3], [1, 2, 3]]), n_new=6, temperature=0.0, stop=sid)
+    assert all(r[-1] == sid and len(r) == 4 for r in batch)   # both halt on the stop token
+
+
 def test_gpt_stream_matches_batch():
     m = _tiny_gpt()
     ref = m.generate([4, 2, 1], n_new=6, temperature=0.0)

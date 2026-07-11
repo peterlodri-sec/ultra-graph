@@ -4,6 +4,21 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] — 2026-07-11
+
+### Added
+- **Gradient accumulation** — `SGD` / `Adam` take `accum_steps=n`: accumulate grads
+  over `n` `step()` calls, then apply one averaged update and auto-zero (train a large
+  effective batch on a small memory budget). `accum_steps=1` is unchanged.
+- **`GPT.generate_batch`** — batched decoding over `[B, T]` (equal-length) prompts on
+  one shared KV-cache, with per-sequence sampling and per-sequence `stop`/EOS. Returns
+  a list of `B` id lists.
+- **`Mesh.generate`** — joint autoregressive decoding across the mixture: each expert
+  keeps its own KV-cache; the router gate (re-evaluated as the sequence grows) mixes
+  their next-token logits before sampling. Supports `top_k`/`top_p`/`repetition_penalty`/`stop`.
+- **`examples/mesh_lm.py`** — a byte-level `Mesh` of GPT experts trained with gradient
+  accumulation, plus joint `Mesh.generate` and batched generation.
+
 ## [0.11.0] — 2026-07-11
 
 ### Added
@@ -172,6 +187,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.12.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.12.0
 [0.11.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.11.0
 [0.10.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.10.0
 [0.9.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.9.0
