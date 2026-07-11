@@ -8,6 +8,7 @@ estimator (STE) on the backward pass.
 """
 from __future__ import annotations
 
+import math
 from typing import Callable, Iterable
 
 import numpy as np
@@ -123,6 +124,46 @@ class Tensor:
 
         out._backward = _backward
         return out
+
+    def exp(self):
+        e = np.exp(self.data)
+        out = self._child(e, (self,), None)
+
+        def _backward():
+            self.grad += e * out.grad
+
+        out._backward = _backward
+        return out
+
+    def tanh(self):
+        t = np.tanh(self.data)
+        out = self._child(t, (self,), None)
+
+        def _backward():
+            self.grad += (1.0 - t * t) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def sigmoid(self):
+        s = 1.0 / (1.0 + np.exp(-self.data))
+        out = self._child(s, (self,), None)
+
+        def _backward():
+            self.grad += s * (1.0 - s) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def gelu(self):
+        """GELU (tanh approximation), composed from primitives so autograd handles it."""
+        c = math.sqrt(2.0 / math.pi)
+        inner = (self + self * self * self * 0.044715) * c
+        return self * (inner.tanh() + 1.0) * 0.5
+
+    def silu(self):
+        """SiLU / swish: x * sigmoid(x)."""
+        return self * self.sigmoid()
 
     def sqrt(self):
         d = np.sqrt(self.data)

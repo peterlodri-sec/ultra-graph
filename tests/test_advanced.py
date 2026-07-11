@@ -215,3 +215,20 @@ def test_weight_decay_shrinks_params():
     q = Tensor(np.ones(4, dtype=np.float32), requires_grad=True)
     Adam(_T(q), lr=0.01, weight_decay=0.5).step()
     assert np.all(q.data < 1.0)
+
+
+def test_cosine_schedule():
+    from ultragraph import SGD, CosineSchedule
+
+    class _T:
+        def parameters(self):
+            return []
+
+    opt = SGD(_T(), lr=1.0)
+    sched = CosineSchedule(opt, total_steps=10, warmup=2, base_lr=1.0, min_lr=0.0)
+    lrs = [sched.step() for _ in range(10)]
+    assert abs(lrs[0] - 0.5) < 1e-6   # warmup step 1 -> base*1/2
+    assert abs(lrs[1] - 1.0) < 1e-6   # warmup step 2 -> base
+    assert lrs[2] < 1.0               # cosine decay begins
+    assert lrs[-1] < 0.05             # ~min at the end
+    assert opt.lr == lrs[-1]

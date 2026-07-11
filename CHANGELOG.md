@@ -4,6 +4,14 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-07-11
+
+### Added
+- **Activations** — `Tensor.exp` / `tanh` / `sigmoid` autograd ops, plus
+  `Tensor.gelu()` and `Tensor.silu()` (composed from primitives).
+- **Cosine LR schedule** — `optim.CosineSchedule(opt, total_steps, warmup=…)`:
+  linear warmup then cosine decay; call `.step()` once per optimizer step.
+
 ## [0.4.0] — 2026-07-11
 
 ### Added
@@ -73,6 +81,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.5.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.5.0
 [0.4.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.4.0
 [0.3.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.3.0
 [0.2.1]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.2.1

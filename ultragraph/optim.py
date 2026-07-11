@@ -5,6 +5,8 @@ master weights (train fp32, deploy ternary).
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 
@@ -114,3 +116,28 @@ class Adam:
     def zero_grad(self):
         for p in self._params:
             p.grad[:] = 0.0
+
+
+class CosineSchedule:
+    """Linear warmup then cosine decay of an optimizer's learning rate.
+
+    Call ``step()`` once per optimizer step; it sets ``opt.lr`` and returns it.
+    """
+
+    def __init__(self, opt, total_steps, warmup=0, base_lr=None, min_lr=0.0):
+        self.opt = opt
+        self.total = int(total_steps)
+        self.warmup = int(warmup)
+        self.base = float(base_lr if base_lr is not None else opt.lr)
+        self.min = float(min_lr)
+        self.t = 0
+
+    def step(self) -> float:
+        self.t += 1
+        if self.warmup and self.t <= self.warmup:
+            lr = self.base * self.t / self.warmup
+        else:
+            p = min(1.0, (self.t - self.warmup) / max(1, self.total - self.warmup))
+            lr = self.min + 0.5 * (self.base - self.min) * (1.0 + math.cos(math.pi * p))
+        self.opt.lr = lr
+        return lr

@@ -20,7 +20,7 @@ from .nn import (
     linear_tree,
     mlp,
 )
-from .optim import SGD, Adam
+from .optim import SGD, Adam, CosineSchedule
 from .pack import pack_ternary, unpack_ternary
 from .quant import dequant, quantize_act_int8, quantize_weight_ternary
 from .tokenize import ByteTokenizer
@@ -28,7 +28,7 @@ from .tokenize import ByteTokenizer
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.4.0"
+    __version__ = "0.5.0"
 
 __all__ = [
     "Tensor",
@@ -51,6 +51,7 @@ __all__ = [
     "ByteTokenizer",
     "SGD",
     "Adam",
+    "CosineSchedule",
     "pack_ternary",
     "unpack_ternary",
     "quantize_weight_ternary",

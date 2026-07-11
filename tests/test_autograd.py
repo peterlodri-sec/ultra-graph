@@ -242,3 +242,22 @@ def test_sum_axis_grad():
     c_t = Tensor(C.copy(), requires_grad=True)
     (a_t.sum(axis=1) * c_t).sum().backward()
     assert np.allclose(a_t.grad, _numeric_grad(fwd_np, [A.copy(), C.copy()], 0), atol=1e-2)
+
+
+def test_activation_grads():
+    rng = np.random.RandomState(12)
+    X = rng.randn(3, 4).astype(np.float32)
+    fns = [
+        ("exp", np.exp),
+        ("tanh", np.tanh),
+        ("sigmoid", lambda a: 1.0 / (1.0 + np.exp(-a))),
+        ("gelu", lambda a: 0.5 * a * (1.0 + np.tanh(np.sqrt(2.0 / np.pi) * (a + 0.044715 * a ** 3)))),
+        ("silu", lambda a: a / (1.0 + np.exp(-a))),
+    ]
+    for name, np_fn in fns:
+        def fwd_np(arrs, f=np_fn):
+            return f(arrs[0]).sum()
+
+        x = Tensor(X.copy(), requires_grad=True)
+        getattr(x, name)().sum().backward()
+        assert np.allclose(x.grad, _numeric_grad(fwd_np, [X.copy()], 0), atol=1e-2), name
