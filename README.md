@@ -4,6 +4,8 @@ A pure-Python (+ numpy) **byte-graph that is a 1-bit (ternary) LLM**.
 
 > **genesis** `251e6ea` · themed after [pocoo.vaked.dev](https://pocoo.vaked.dev)
 
+![ultragraph architecture — micro (node/edge, 1 byte each) → meso (tree) → macro (ultra-graph)](assets/architecture.png)
+
 Three levels:
 
 | level | unit | storage |
