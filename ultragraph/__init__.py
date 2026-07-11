@@ -4,6 +4,9 @@ node/edge (1 byte each) -> tree (a whole net) -> ultra-edge wiring -> ultra-grap
 """
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
+
 from .autograd import Tensor, ternary_linear
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
 from .nn import (
@@ -19,7 +22,10 @@ from .optim import SGD, Adam
 from .pack import pack_ternary, unpack_ternary
 from .quant import dequant, quantize_act_int8, quantize_weight_ternary
 
-__version__ = "0.1.0"
+try:
+    __version__ = _pkg_version("ultragraph-1bit")
+except PackageNotFoundError:  # running from a source tree without install
+    __version__ = "0.2.1"
 
 __all__ = [
     "Tensor",
