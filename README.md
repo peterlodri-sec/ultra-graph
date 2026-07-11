@@ -76,8 +76,9 @@ for _ in range(300):
 ```
 
 See `examples/char_lm.py` (MLP LM), `examples/transformer_lm.py` (single-head attention),
-and `examples/mini_gpt.py` (batched **multi-head** attention + **RMSNorm** + **Adam**) for
-end-to-end char-level ternary language models.
+`examples/mini_gpt.py` (batched **multi-head** attention + **RMSNorm** + **Adam**), and
+`examples/gpt_lm.py` (the whole stack: **`ByteTokenizer` → `GPT` → train → stream**) for
+end-to-end char/byte-level ternary language models.
 
 ```python
 from ultragraph import Embedding, MultiHeadAttention, RMSNorm, linear_tree, Adam
@@ -92,7 +93,8 @@ from ultragraph import GPT
 
 m = GPT(vocab=256, d_model=128, n_layers=4, n_heads=4, max_len=256)  # RoPE + KV-cache
 logits = m(ids)                       # ids [B, T] -> logits [B, T, vocab]
-out = m.generate([72, 105], n_new=64, temperature=0.8, top_k=40, top_p=0.9, seed=0)
+out = m.generate([72, 105], n_new=64, temperature=0.8, top_k=40, top_p=0.9,
+                 repetition_penalty=1.3, stop=10, seed=0)   # stop on newline byte
 
 for tok in m.generate([72, 105], n_new=64, temperature=0.8, stream=True):
     print(tok, end=" ", flush=True)   # token-by-token

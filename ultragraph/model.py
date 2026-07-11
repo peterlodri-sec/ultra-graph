@@ -101,28 +101,36 @@ class GPT:
         return self
 
     # -- generation -----------------------------------------------------------
-    def generate(self, prompt, n_new, temperature=1.0, top_k=None, top_p=None, seed=None, stream=False):
+    def generate(self, prompt, n_new, temperature=1.0, top_k=None, top_p=None,
+                 repetition_penalty=1.0, stop=None, seed=None, stream=False):
         """Autoregressive decode with a per-layer KV-cache. ``temperature <= 0`` is
-        greedy; ``top_k`` / ``top_p`` (nucleus) truncate the sampling distribution.
+        greedy; ``top_k`` / ``top_p`` (nucleus) truncate the sampling distribution;
+        ``repetition_penalty`` (> 1) discourages already-seen tokens; ``stop`` is a
+        token id (or iterable of ids) that halts generation once produced.
 
-        Default returns ``prompt + n_new`` token ids. With ``stream=True`` returns a
-        generator that yields each *new* token id as it is produced."""
+        Default returns ``prompt + generated`` token ids. With ``stream=True`` returns
+        a generator that yields each *new* token id as it is produced."""
         ids = [int(t) for t in np.asarray(prompt, dtype=np.int64).reshape(-1)]
         if not ids:
             raise ValueError("prompt must be non-empty")
-        it = self._stream(ids, int(n_new), temperature, top_k, top_p, seed)
+        stops = set() if stop is None else ({int(stop)} if isinstance(stop, int) else {int(s) for s in stop})
+        it = self._stream(ids, int(n_new), temperature, top_k, top_p, float(repetition_penalty), stops, seed)
         if stream:
             return it
         ids.extend(it)
         return ids
 
-    def _stream(self, prompt_ids, n_new, temperature, top_k, top_p, seed):
+    def _stream(self, prompt_ids, n_new, temperature, top_k, top_p, rep_pen, stops, seed):
         rng = np.random.default_rng(seed)
         caches = [{"k": None, "v": None} for _ in self.blocks]
+        history = list(prompt_ids)
         logits = self._decode(np.array(prompt_ids, dtype=np.int64)[None, :], caches)  # prime
         for _ in range(n_new):
-            nxt = self._sample(logits[0, -1], temperature, top_k, top_p, rng)
+            nxt = self._sample(logits[0, -1], temperature, top_k, top_p, rep_pen, history, rng)
+            history.append(nxt)
             yield nxt
+            if nxt in stops:
+                return
             logits = self._decode(np.array([[nxt]], dtype=np.int64), caches)
 
     def _decode(self, ids, caches):
@@ -133,8 +141,14 @@ class GPT:
         return self.head.forward(self.norm(x)).data  # [B, T, vocab] fp32
 
     @staticmethod
-    def _sample(logits, temperature, top_k, top_p, rng):
-        logits = logits.astype(np.float64)
+    def _sample(logits, temperature, top_k, top_p, rep_pen, history, rng):
+        logits = logits.astype(np.float64)  # fresh copy; safe to mutate in place
+        if rep_pen > 0.0 and rep_pen != 1.0 and history:
+            seen = np.unique(np.asarray(history, dtype=np.int64))
+            seen = seen[(seen >= 0) & (seen < logits.shape[-1])]
+            pos = logits[seen] > 0
+            logits[seen[pos]] /= rep_pen          # CTRL-style: shrink positive, grow negative
+            logits[seen[~pos]] *= rep_pen
         if temperature <= 0:
             return int(np.argmax(logits))
         logits = logits / float(temperature)

@@ -4,6 +4,17 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — 2026-07-11
+
+### Added
+- **`stop` tokens** — `GPT.generate(..., stop=id_or_ids)` halts as soon as a stop
+  token is produced (emitted, then generation ends).
+- **Repetition penalty** — `GPT.generate(..., repetition_penalty=…)`: the CTRL rule
+  over the running history (`> 1` discourages already-seen tokens, `< 1` encourages).
+- **`examples/gpt_lm.py`** — the whole stack end to end: `ByteTokenizer` → `GPT`
+  (RoPE + KV-cache) → Adam → re-quantized ternary → streaming generation and a
+  save/load round-trip, on a byte-level toy corpus.
+
 ## [0.8.0] — 2026-07-11
 
 ### Added
@@ -134,6 +145,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.9.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.9.0
 [0.8.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.8.0
 [0.7.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.7.0
 [0.6.1]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.6.1

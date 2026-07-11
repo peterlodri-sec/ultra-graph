@@ -71,6 +71,24 @@ def test_gpt_top_p_sampling_runs_and_is_seeded():
     assert all(0 <= t < 16 for t in a)
 
 
+def test_gpt_stop_token_halts():
+    m = _tiny_gpt()
+    # find what greedy would produce, then use its first new token as a stop id
+    full = m.generate([1, 2, 3], n_new=6, temperature=0.0)
+    stop_id = full[3]
+    stopped = m.generate([1, 2, 3], n_new=6, temperature=0.0, stop=stop_id)
+    assert stopped[-1] == stop_id            # halts right after emitting the stop token
+    assert len(stopped) == 4                 # prompt(3) + 1 generated (the stop)
+
+
+def test_gpt_repetition_penalty_changes_output():
+    m = _tiny_gpt()
+    base = m.generate([5, 5, 5], n_new=10, temperature=0.7, seed=1)
+    pen = m.generate([5, 5, 5], n_new=10, temperature=0.7, seed=1, repetition_penalty=2.0)
+    assert base != pen                       # penalty perturbs the distribution
+    assert len(pen) == 13
+
+
 def test_gpt_overfits_toy_sequence():
     m = _tiny_gpt()
     opt = SGD(m, lr=0.5, momentum=0.9, clip=1.0)
