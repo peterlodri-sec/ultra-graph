@@ -167,6 +167,16 @@ class Tensor:
         out._backward = _backward
         return out
 
+    def __getitem__(self, key):
+        # Basic indexing (slices / ints / Ellipsis); grad scatters back to the slice.
+        out = self._child(self.data[key], (self,), None)
+
+        def _backward():
+            self.grad[key] += out.grad
+
+        out._backward = _backward
+        return out
+
     def sum(self):
         out = self._child(np.array(self.data.sum(), dtype=np.float32), (self,), None)
 

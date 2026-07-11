@@ -4,6 +4,17 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] — 2026-07-11
+
+### Added
+- **Mixture of experts** (`nn.MoE`) — a soft mixture of ternary-MLP experts with a
+  learned router: `output = Σ_e softmax(router(x))_e · expert_e(x)`. Router and
+  experts are dense ternary trees; fully differentiable.
+- **Byte-level tokenizer** (`ByteTokenizer`) — lossless UTF-8 byte tokenization,
+  vocab 256, no training or OOV. `examples/moe_lm.py` demos a byte-level MoE LM.
+- **Autograd slicing** — `Tensor.__getitem__` (basic indexing) with a scatter
+  backward, enabling per-expert gating.
+
 ## [0.2.1] — 2026-07-11
 
 ### Fixed
@@ -52,6 +63,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.3.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.3.0
 [0.2.1]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.2.1
 [0.2.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.2.0
 [0.1.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.1.0

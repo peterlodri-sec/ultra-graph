@@ -85,6 +85,21 @@ def test_positional_embedding_shape_and_grad():
     assert np.all(pos.table.grad[5:] == 0)          # unused positions do not
 
 
+def test_moe_shape_and_gradients():
+    from ultragraph import MoE
+
+    np.random.seed(0)
+    moe = MoE(8, n_experts=3, hidden=16)
+    x = Tensor(np.random.randn(2, 5, 8).astype(np.float32))
+    out = moe(x)
+    assert out.shape == (2, 5, 8) and np.isfinite(out.data).all()
+    out.sum().backward()
+    # gradient reaches both the router and the experts
+    assert np.abs(moe.router.parameters()[0].grad).sum() > 0
+    assert np.abs(moe.experts_in[0].parameters()[0].grad).sum() > 0
+    assert np.abs(moe.experts_out[1].parameters()[0].grad).sum() > 0
+
+
 def test_adam_overfits_toy_classification():
     np.random.seed(0)
     n = 32

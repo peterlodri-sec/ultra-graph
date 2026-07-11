@@ -13,6 +13,7 @@ from .nn import (
     Attention,
     LayerNorm,
     LearnedPositionalEmbedding,
+    MoE,
     MultiHeadAttention,
     RMSNorm,
     linear_tree,
@@ -21,11 +22,12 @@ from .nn import (
 from .optim import SGD, Adam
 from .pack import pack_ternary, unpack_ternary
 from .quant import dequant, quantize_act_int8, quantize_weight_ternary
+from .tokenize import ByteTokenizer
 
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.2.1"
+    __version__ = "0.3.0"
 
 __all__ = [
     "Tensor",
@@ -43,6 +45,8 @@ __all__ = [
     "RMSNorm",
     "LayerNorm",
     "LearnedPositionalEmbedding",
+    "MoE",
+    "ByteTokenizer",
     "SGD",
     "Adam",
     "pack_ternary",

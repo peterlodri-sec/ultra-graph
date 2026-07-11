@@ -177,3 +177,41 @@ class LearnedPositionalEmbedding:
 
     def parameters(self):
         return [self.table]
+
+
+class MoE:
+    """Soft mixture of ternary-MLP experts with a learned router.
+
+    ``output = sum_e softmax(router(x))_e * expert_e(x)``, over the last axis. The
+    router and every expert are dense ternary trees, so the whole block is still
+    a byte-graph. Fully differentiable (soft routing over all experts).
+    """
+
+    def __init__(self, dim, n_experts=4, hidden=None, name="moe"):
+        self.dim = int(dim)
+        self.n_experts = int(n_experts)
+        self.name = name
+        h = int(hidden) if hidden else 4 * dim
+        self.router = Tree.dense(dim, self.n_experts, f"{name}.router", act="none")
+        self.experts_in = [Tree.dense(dim, h, f"{name}.e{i}.in", act="relu") for i in range(self.n_experts)]
+        self.experts_out = [Tree.dense(h, dim, f"{name}.e{i}.out", act="none") for i in range(self.n_experts)]
+
+    def __call__(self, x):
+        gate = self.router.forward(x).softmax(axis=-1)  # [..., n_experts]
+        out = None
+        for i in range(self.n_experts):
+            y = self.experts_out[i].forward(self.experts_in[i].forward(x))  # [..., dim]
+            term = y * gate[..., i : i + 1]  # broadcast [...,1] over [...,dim]
+            out = term if out is None else out + term
+        return out
+
+    def parameters(self):
+        ps = list(self.router.parameters())
+        for t in self.experts_in + self.experts_out:
+            ps.extend(t.parameters())
+        return ps
+
+    def requantize(self):
+        self.router.requantize()
+        for t in self.experts_in + self.experts_out:
+            t.requantize()

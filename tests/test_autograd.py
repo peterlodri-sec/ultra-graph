@@ -212,3 +212,19 @@ def test_ternary_linear_3d_ste():
     y.sum().backward()
     assert np.allclose(w_t.grad, _numeric_grad(fwd_np, [X.copy(), W.copy(), b.copy()], 1), atol=1e-2)
     assert np.allclose(x_t.grad, _numeric_grad(fwd_np, [X.copy(), W.copy(), b.copy()], 0), atol=1e-2)
+
+
+def test_getitem_slice_grad():
+    rng = np.random.RandomState(10)
+    A = rng.randn(4, 5).astype(np.float32)
+    C = rng.randn(4, 2).astype(np.float32)
+
+    def fwd_np(arrs):
+        a, c = arrs
+        return (a[:, 1:3] * c).sum()
+
+    a_t = Tensor(A.copy(), requires_grad=True)
+    c_t = Tensor(C.copy(), requires_grad=True)
+    (a_t[:, 1:3] * c_t).sum().backward()
+    assert np.allclose(a_t.grad, _numeric_grad(fwd_np, [A.copy(), C.copy()], 0), atol=1e-2)
+    assert np.all(a_t.grad[:, [0, 3, 4]] == 0)  # untouched columns get no grad

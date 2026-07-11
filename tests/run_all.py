@@ -14,6 +14,7 @@ MODULES = [
     "test_core",
     "test_io",
     "test_pack",
+    "test_tokenize",
     "test_viz",
     "test_attention",
     "test_advanced",
