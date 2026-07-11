@@ -10,3 +10,4 @@ examples/data/train.log
 examples/data/train4k.log
 examples/data/hu_train.log
 examples/data/.loop_start
+examples/data/.wikicache/

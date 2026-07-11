@@ -10,6 +10,7 @@ dependencies = ["numpy>=2.0"]
 [project.optional-dependencies]
 viz = ["matplotlib>=3.8"]
 mcp = ["mcp>=1.2"]
+wiki = ["pymediawiki>=0.7"]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]
