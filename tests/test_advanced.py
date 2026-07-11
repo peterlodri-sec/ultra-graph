@@ -163,3 +163,55 @@ def test_mini_transformer_batched_trains():
         opt.step()
         losses.append(float(loss.data))
     assert min(losses[-10:]) < 0.6 * losses[0], (losses[0], min(losses[-10:]))
+
+
+def test_moe_top_k_routing():
+    from ultragraph import MoE
+
+    np.random.seed(0)
+    x = Tensor(np.random.randn(3, 8).astype(np.float32))
+    moe1 = MoE(8, n_experts=4, top_k=1)
+    assert moe1.top_k == 1
+    out1 = moe1(x)
+    assert out1.shape == (3, 8) and np.isfinite(out1.data).all()
+    out1.sum().backward()
+    assert np.abs(moe1.router.parameters()[0].grad).sum() > 0
+    # top-k=1 vs full soft mixture differ (routing is actually applied)
+    np.random.seed(0)
+    full = MoE(8, n_experts=4, top_k=4)
+    np.random.seed(0)
+    k1 = MoE(8, n_experts=4, top_k=1)
+    assert not np.allclose(full(x).data, k1(x).data)
+
+
+def test_dropout_train_eval_and_grad():
+    from ultragraph import Dropout
+
+    np.random.seed(0)
+    d = Dropout(0.5)
+    x = Tensor(np.ones((4, 6), dtype=np.float32))
+    out = d(x)
+    assert out.shape == (4, 6) and (out.data == 0).any()  # some units dropped
+    out.sum().backward()
+    assert x.grad.shape == (4, 6)
+    d.training = False
+    passthrough = d(Tensor(np.ones((2, 3), dtype=np.float32)))
+    assert np.array_equal(passthrough.data, np.ones((2, 3)))
+
+
+def test_weight_decay_shrinks_params():
+    from ultragraph import SGD, Adam
+
+    class _T:
+        def __init__(self, p):
+            self._p = [p]
+
+        def parameters(self):
+            return self._p
+
+    p = Tensor(np.ones(4, dtype=np.float32), requires_grad=True)  # grad stays 0
+    SGD(_T(p), lr=0.1, weight_decay=0.5).step()
+    assert np.allclose(p.data, 1.0 - 0.1 * 0.5)  # shrunk by L2 term to 0.95
+    q = Tensor(np.ones(4, dtype=np.float32), requires_grad=True)
+    Adam(_T(q), lr=0.01, weight_decay=0.5).step()
+    assert np.all(q.data < 1.0)

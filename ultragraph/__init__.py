@@ -11,6 +11,7 @@ from .autograd import Tensor, ternary_linear
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
 from .nn import (
     Attention,
+    Dropout,
     LayerNorm,
     LearnedPositionalEmbedding,
     MoE,
@@ -27,7 +28,7 @@ from .tokenize import ByteTokenizer
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.3.0"
+    __version__ = "0.4.0"
 
 __all__ = [
     "Tensor",
@@ -46,6 +47,7 @@ __all__ = [
     "LayerNorm",
     "LearnedPositionalEmbedding",
     "MoE",
+    "Dropout",
     "ByteTokenizer",
     "SGD",
     "Adam",

@@ -177,11 +177,14 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def sum(self):
-        out = self._child(np.array(self.data.sum(), dtype=np.float32), (self,), None)
+    def sum(self, axis: int | None = None, keepdims: bool = False):
+        out = self._child(np.asarray(self.data.sum(axis=axis, keepdims=keepdims), dtype=np.float32), (self,), None)
 
         def _backward():
-            self.grad += np.ones_like(self.data) * out.grad
+            g = out.grad
+            if axis is not None and not keepdims:
+                g = np.expand_dims(g, axis)
+            self.grad += np.ones_like(self.data) * g
 
         out._backward = _backward
         return out

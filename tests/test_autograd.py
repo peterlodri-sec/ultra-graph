@@ -228,3 +228,17 @@ def test_getitem_slice_grad():
     (a_t[:, 1:3] * c_t).sum().backward()
     assert np.allclose(a_t.grad, _numeric_grad(fwd_np, [A.copy(), C.copy()], 0), atol=1e-2)
     assert np.all(a_t.grad[:, [0, 3, 4]] == 0)  # untouched columns get no grad
+
+
+def test_sum_axis_grad():
+    rng = np.random.RandomState(11)
+    A = rng.randn(3, 4).astype(np.float32)
+    C = rng.randn(3).astype(np.float32)
+
+    def fwd_np(arrs):
+        return (arrs[0].sum(axis=1) * arrs[1]).sum()
+
+    a_t = Tensor(A.copy(), requires_grad=True)
+    c_t = Tensor(C.copy(), requires_grad=True)
+    (a_t.sum(axis=1) * c_t).sum().backward()
+    assert np.allclose(a_t.grad, _numeric_grad(fwd_np, [A.copy(), C.copy()], 0), atol=1e-2)

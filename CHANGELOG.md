@@ -4,6 +4,16 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-07-11
+
+### Added
+- **Top-k routing for `nn.MoE`** — `MoE(..., top_k=k)` keeps only the top-k experts
+  per token (gates renormalized); the full soft mixture stays the default.
+- **`nn.Dropout`** — inverted dropout (rescales by `1/(1-p)`); passthrough when
+  `training=False`.
+- **Weight decay** — `weight_decay=` on `SGD` and `Adam` (L2).
+- **Autograd** — `Tensor.sum(axis=, keepdims=)`.
+
 ## [0.3.0] — 2026-07-11
 
 ### Added
@@ -63,6 +73,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.4.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.4.0
 [0.3.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.3.0
 [0.2.1]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.2.1
 [0.2.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.2.0

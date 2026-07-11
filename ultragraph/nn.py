@@ -187,9 +187,10 @@ class MoE:
     a byte-graph. Fully differentiable (soft routing over all experts).
     """
 
-    def __init__(self, dim, n_experts=4, hidden=None, name="moe"):
+    def __init__(self, dim, n_experts=4, hidden=None, top_k=None, name="moe"):
         self.dim = int(dim)
         self.n_experts = int(n_experts)
+        self.top_k = self.n_experts if top_k is None else min(int(top_k), self.n_experts)
         self.name = name
         h = int(hidden) if hidden else 4 * dim
         self.router = Tree.dense(dim, self.n_experts, f"{name}.router", act="none")
@@ -198,6 +199,14 @@ class MoE:
 
     def __call__(self, x):
         gate = self.router.forward(x).softmax(axis=-1)  # [..., n_experts]
+        if self.top_k < self.n_experts:
+            # keep only the top-k experts per token, then renormalize the gates
+            g = gate.data
+            idx = np.argpartition(-g, self.top_k - 1, axis=-1)[..., : self.top_k]
+            mask = np.zeros_like(g)
+            np.put_along_axis(mask, idx, 1.0, axis=-1)
+            gate = gate * Tensor(mask)
+            gate = gate / (gate.sum(axis=-1, keepdims=True) + 1e-9)
         out = None
         for i in range(self.n_experts):
             y = self.experts_out[i].forward(self.experts_in[i].forward(x))  # [..., dim]
@@ -215,3 +224,24 @@ class MoE:
         self.router.requantize()
         for t in self.experts_in + self.experts_out:
             t.requantize()
+
+
+class Dropout:
+    """Inverted dropout. When ``training`` is True, zeroes a fraction ``p`` of the
+    activations and rescales the rest by ``1/(1-p)``; when False it is a passthrough.
+    """
+
+    def __init__(self, p=0.1, name="dropout"):
+        self.p = float(p)
+        self.name = name
+        self.training = True
+
+    def __call__(self, x):
+        if not self.training or self.p <= 0.0:
+            return x
+        keep = 1.0 - self.p
+        mask = (np.random.rand(*x.shape) < keep).astype(np.float32) / keep
+        return x * Tensor(mask)
+
+    def parameters(self):
+        return []

@@ -15,11 +15,13 @@ class SGD:
     optionally, ``requantize()``), e.g. an ``UltraGraph``.
     """
 
-    def __init__(self, target, lr: float = 0.1, momentum: float = 0.0, clip: float | None = None):
+    def __init__(self, target, lr: float = 0.1, momentum: float = 0.0, clip: float | None = None,
+                 weight_decay: float = 0.0):
         self.target = target
         self.lr = float(lr)
         self.momentum = float(momentum)
         self.clip = None if clip is None else float(clip)
+        self.weight_decay = float(weight_decay)
         if hasattr(target, "parameters"):
             self._params = target.parameters()
         else:
@@ -41,7 +43,7 @@ class SGD:
         if self.clip is not None:
             self._clip_grads()
         for p in self._params:
-            g = p.grad
+            g = (p.grad + self.weight_decay * p.data) if self.weight_decay else p.grad
             if self.momentum:
                 v = self._vel.get(id(p))
                 if v is None:
@@ -62,12 +64,13 @@ class SGD:
 class Adam:
     """Adam over the fp32 master weights; re-quantizes the target after each step."""
 
-    def __init__(self, target, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, clip=None):
+    def __init__(self, target, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, clip=None, weight_decay=0.0):
         self.target = target
         self.lr = float(lr)
         self.b1, self.b2 = float(betas[0]), float(betas[1])
         self.eps = float(eps)
         self.clip = None if clip is None else float(clip)
+        self.weight_decay = float(weight_decay)
         if hasattr(target, "parameters"):
             self._params = target.parameters()
         else:
@@ -92,7 +95,7 @@ class Adam:
             self._clip_grads()
         self._t += 1
         for p in self._params:
-            g = p.grad
+            g = (p.grad + self.weight_decay * p.data) if self.weight_decay else p.grad
             m = self._m.get(id(p))
             v = self._v.get(id(p))
             if m is None:
