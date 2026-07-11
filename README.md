@@ -110,6 +110,20 @@ ternary values per byte) plus the tiny fp32 pieces (embedding, norm gains, biase
 On an 858k-param model that's **3.4 MB → 334 KB**, and `deployed(ids)` gives logits
 identical to the trained model — `Tree.forward` runs straight from the stored bytes.
 
+## A mesh of minds
+
+```python
+from ultragraph import GPT, Mesh
+
+experts = [GPT(vocab=256, d_model=64, n_layers=2, n_heads=4) for _ in range(4)]
+mesh = Mesh(experts, vocab=256, top_k=2)     # a learned router mixes full models
+logits = mesh(ids)                           # Σ_e gate(ids)_e · expert_e(ids)
+```
+
+`Mesh` lifts `nn.MoE`'s routing to whole networks: a small ternary router reads the
+sequence and mixes the experts' logits per sequence (soft, or top-k). Router and every
+expert train together — a graph of minds, still all ternary bytes underneath.
+
 `generate` decodes with a per-layer **KV-cache**; since activations are quantized
 per token, a cached step is byte-for-byte the full-forward result at that position.
 Positions come from **RoPE** (rotary embeddings) — relative, and `offset`-aware so
@@ -131,7 +145,7 @@ ultragraph/quant.py     ternary + int8 quantization, STE
 ultragraph/autograd.py  numpy autograd tape; ternary_linear (STE); exp/tanh/sigmoid/gelu/silu
 ultragraph/core.py      Node/Edge/Tree/UltraEdge/UltraGraph + dunder API
 ultragraph/nn.py        linear_tree, mlp, Attention, MultiHeadAttention, RoPE, RMSNorm, LayerNorm, LearnedPositionalEmbedding, MoE, Dropout, Sequential
-ultragraph/model.py     TransformerBlock + GPT (embedding + RoPE + pre-norm blocks + ternary head) with cached .generate()
+ultragraph/model.py     TransformerBlock + GPT (RoPE + KV-cache + .generate + save_deployed) + Mesh (mixture of full models)
 ultragraph/optim.py     SGD + Adam (grad clip, weight decay) + CosineSchedule, re-quantize after step
 ultragraph/pack.py      dense ternary bit-packing (5 values/byte, ~1.58-bit)
 ultragraph/tokenize.py  byte-level tokenizer (ByteTokenizer, vocab 256)

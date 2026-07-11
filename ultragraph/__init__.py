@@ -10,7 +10,7 @@ from importlib.metadata import version as _pkg_version
 from .autograd import Tensor, cat, ternary_linear
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
 from .io import load, load_params, save, save_params
-from .model import GPT, TransformerBlock
+from .model import GPT, Mesh, TransformerBlock
 from .nn import (
     Attention,
     Dropout,
@@ -33,7 +33,7 @@ from .vaked import compile_vaked, lower_graph
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.10.0"
+    __version__ = "0.11.0"
 
 __all__ = [
     "Tensor",
@@ -58,6 +58,7 @@ __all__ = [
     "Sequential",
     "TransformerBlock",
     "GPT",
+    "Mesh",
     "ByteTokenizer",
     "SGD",
     "Adam",

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from .autograd import Tensor
 from .core import Embedding, Tree
 from .nn import MultiHeadAttention, RMSNorm, RoPE
 
@@ -150,7 +151,6 @@ class GPT:
         the trained model. Returns the model."""
         import json
 
-        from .autograd import Tensor
         from .pack import unpack_ternary
         data = np.load(path, allow_pickle=False)
         meta = json.loads(str(data["__meta__"]))
@@ -237,3 +237,78 @@ class GPT:
             masked[keep] = p[keep]
             p = masked / masked.sum()
         return int(rng.choice(len(p), p=p))
+
+
+class Mesh:
+    """A graph of minds — a learned soft (or top-k) mixture of *full* models.
+
+    Each expert maps token ids ``[B, T]`` to logits ``[B, T, vocab]`` (a `GPT`, or
+    anything with that signature + ``parameters`` / ``requantize``). A small ternary
+    router mixes them *per sequence* from a pooled token embedding::
+
+        logits = sum_e  gate(ids)_e * expert_e(ids)
+
+    This is `nn.MoE`'s routing lifted to whole networks — the mesh of the Low-Bit
+    stories, made real. Fully differentiable; the router and every expert train
+    together. (Mixture is over logits, so generation is per-expert, not joint.)
+    """
+
+    def __init__(self, experts, vocab, d_router=32, top_k=None, name="mesh"):
+        assert experts, "a mesh needs at least one expert"
+        self.experts = list(experts)
+        self.n_experts = len(self.experts)
+        if top_k is None:
+            self.top_k = self.n_experts
+        else:
+            self.top_k = int(top_k)
+            if not (1 <= self.top_k <= self.n_experts):
+                raise ValueError(f"top_k must be in [1, {self.n_experts}], got {top_k}")
+        self.vocab = int(vocab)
+        self.name = name
+        self.r_embed = Embedding(vocab, d_router, name=f"{name}.rembed")
+        self.router = Tree.dense(d_router, self.n_experts, f"{name}.router", act="none")
+
+    def _gate(self, ids):
+        pooled = self.r_embed(ids).mean(axis=-2)                 # [B, d_router]
+        gate = self.router.forward(pooled).softmax(axis=-1)      # [B, n_experts]
+        if self.top_k < self.n_experts:
+            g = gate.data
+            idx = np.argpartition(-g, self.top_k - 1, axis=-1)[..., : self.top_k]
+            mask = np.zeros_like(g)
+            np.put_along_axis(mask, idx, 1.0, axis=-1)
+            gate = gate * Tensor(mask)
+            gate = gate / (gate.sum(axis=-1, keepdims=True) + 1e-9)
+        return gate
+
+    def __call__(self, ids):
+        ids = np.asarray(ids, dtype=np.int64)
+        two_d = ids.ndim == 1
+        if two_d:
+            ids = ids[None, :]
+        b = ids.shape[0]
+        gate = self._gate(ids)                                   # [B, n_experts]
+        out = None
+        for e in range(self.n_experts):
+            logits = self.experts[e](ids)                        # [B, T, vocab]
+            term = logits * gate[:, e : e + 1].reshape(b, 1, 1)  # broadcast over [T, vocab]
+            out = term if out is None else out + term
+        if two_d:
+            out = out.reshape(out.shape[1], out.shape[2])
+        return out
+
+    def parameters(self):
+        ps = list(self.r_embed.parameters()) + list(self.router.parameters())
+        for e in self.experts:
+            if hasattr(e, "parameters"):
+                ps.extend(e.parameters())
+        return ps
+
+    def requantize(self):
+        self.router.requantize()
+        for e in self.experts:
+            r = getattr(e, "requantize", None)
+            if callable(r):
+                r()
+
+    def n_params(self):
+        return int(sum(p.data.size for p in self.parameters()))

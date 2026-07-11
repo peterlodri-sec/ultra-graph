@@ -4,6 +4,18 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] — 2026-07-11
+
+### Added
+- **`model.Mesh`** — a graph of minds: a learned soft (or top-k) mixture of *full*
+  models. Each expert maps token ids to logits; a small ternary router mixes them
+  per sequence (`logits = Σ_e gate(ids)_e · expert_e(ids)`). `nn.MoE`'s routing
+  lifted to whole networks — fully differentiable, router + experts train together.
+
+### Fixed
+- `Mesh` and `nn.MoE` now reject `top_k` outside `[1, n_experts]` (a non-positive
+  `top_k` previously zeroed the whole mixture silently).
+
 ## [0.10.0] — 2026-07-11
 
 ### Added
@@ -160,6 +172,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.11.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.11.0
 [0.10.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.10.0
 [0.9.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.9.0
 [0.8.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.8.0

@@ -250,7 +250,12 @@ class MoE:
     def __init__(self, dim, n_experts=4, hidden=None, top_k=None, name="moe"):
         self.dim = int(dim)
         self.n_experts = int(n_experts)
-        self.top_k = self.n_experts if top_k is None else min(int(top_k), self.n_experts)
+        if top_k is None:
+            self.top_k = self.n_experts
+        else:
+            self.top_k = int(top_k)
+            if not (1 <= self.top_k <= self.n_experts):
+                raise ValueError(f"top_k must be in [1, {self.n_experts}], got {top_k}")
         self.name = name
         h = int(hidden) if hidden else 4 * dim
         self.router = Tree.dense(dim, self.n_experts, f"{name}.router", act="none")
