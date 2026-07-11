@@ -126,6 +126,29 @@ text = mesh.generate([72, 105], n_new=64, temperature=0.8)   # joint KV-cached d
 sequence and mixes the experts' logits per sequence (soft, or top-k). Router and every
 expert train together — a graph of minds, still all ternary bytes underneath.
 
+## The first 1-bit Hungarian LLM
+
+`examples/anonymus_lm.py` trains a byte-level ternary `GPT` on the **_Gesta Hungarorum_**
+of Anonymus (c. 1200), the founding chronicle of the Hungarian nation (public-domain
+Latin). Every weight is a trit `{−1, 0, +1}`; the trained model deploys to a **196 KB**
+bit-packed checkpoint (`examples/data/anonymus.gpt.npz`).
+
+```sh
+uv run python examples/fetch_gesta.py     # pull + clean the corpus (~94 KB)
+uv run python examples/anonymus_lm.py     # train (~1500 steps) -> deployed 1-bit checkpoint
+```
+
+```python
+from ultragraph import GPT, ByteTokenizer
+tok = ByteTokenizer()
+m = GPT.load_deployed("examples/data/anonymus.gpt.npz")
+print(tok.decode(m.generate(tok.encode("Almus dux "), n_new=90, temperature=0.8, top_p=0.9)))
+# -> "Almus dux fuersis marpalere ... dux cum patis se ... terras suis ..."
+```
+
+It writes in Anonymus's register — a 384k-param ternary net that learned medieval Latin
+from 94 KB, running from ~1.6-bit weights.
+
 `generate` decodes with a per-layer **KV-cache**; since activations are quantized
 per token, a cached step is byte-for-byte the full-forward result at that position.
 Positions come from **RoPE** (rotary embeddings) — relative, and `offset`-aware so
