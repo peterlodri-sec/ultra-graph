@@ -13,3 +13,4 @@ examples/data/.loop_start
 examples/data/.wikicache/
 examples/data/hungarian.train.npz
 examples/data/hungarian.train.json
+examples/data/hu_seg*.log
