@@ -101,6 +101,7 @@ ultragraph/io.py        byte-exact save / load
 ```
 
 Design spec: `docs/superpowers/specs/2026-07-10-ultragraph-design.md`.
+Graph-theory reading list (Erdős classics): [`docs/references.md`](docs/references.md).
 
 ## Install from source
 
