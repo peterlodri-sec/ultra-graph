@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import numpy as np
 
 from ultragraph import GPT, SGD
@@ -37,6 +40,35 @@ def test_gpt_generate_length_and_greedy_determinism():
     assert len(out) == 8 and out[:3] == [1, 2, 3]
     # greedy is deterministic
     assert m.generate([1, 2, 3], n_new=5, temperature=0.0) == out
+
+
+def test_gpt_save_load_roundtrip():
+    m = _tiny_gpt()
+    ids = np.array([[2, 5, 7, 1, 3]], dtype=np.int64)
+    before = m(ids).data
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "gpt.npz")
+        m.save(p)
+        m2 = GPT(vocab=16, d_model=16, n_layers=2, n_heads=2, max_len=32)  # fresh weights
+        assert not np.allclose(m2(ids).data, before)                       # differ before load
+        m2.load(p)
+        assert np.allclose(m2(ids).data, before, atol=1e-5)                # identical after
+
+
+def test_gpt_stream_matches_batch():
+    m = _tiny_gpt()
+    ref = m.generate([4, 2, 1], n_new=6, temperature=0.0)
+    streamed = list(m.generate([4, 2, 1], n_new=6, temperature=0.0, stream=True))
+    assert streamed == ref[3:]          # stream yields only the new tokens
+    assert len(streamed) == 6
+
+
+def test_gpt_top_p_sampling_runs_and_is_seeded():
+    m = _tiny_gpt()
+    a = m.generate([1, 2], n_new=8, temperature=1.0, top_p=0.9, seed=0)
+    b = m.generate([1, 2], n_new=8, temperature=1.0, top_p=0.9, seed=0)
+    assert a == b and len(a) == 10      # same seed -> deterministic
+    assert all(0 <= t < 16 for t in a)
 
 
 def test_gpt_overfits_toy_sequence():

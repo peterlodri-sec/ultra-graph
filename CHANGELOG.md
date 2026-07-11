@@ -4,6 +4,18 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-07-11
+
+### Added
+- **`GPT.save` / `GPT.load`** — persist and restore a model's fp32 parameters
+  (byte-exact inference after re-quantize). Rebuild a `GPT` with the same
+  hyper-parameters, then `.load(path)`.
+- **Streaming generation** — `GPT.generate(..., stream=True)` returns a generator
+  that yields each new token id as it is produced (drives token-by-token demos).
+- **Nucleus sampling** — `GPT.generate(..., top_p=…)`: keep the smallest set of
+  tokens whose cumulative probability reaches `top_p`, then renormalize. Composes
+  with `top_k` and `temperature`.
+
 ## [0.7.0] — 2026-07-11
 
 ### Added
@@ -122,6 +134,7 @@ The byte-graph that is a 1-bit (ternary) LLM.
   (`ruff` + `pytest` on Python 3.11–3.13), `CONTRIBUTING.md`, `CHANGELOG.md`, and
   `docs/references.md` (an Erdős graph-theory reading list).
 
+[0.8.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.8.0
 [0.7.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.7.0
 [0.6.1]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.6.1
 [0.6.0]: https://github.com/peterlodri-sec/ultra-graph/releases/tag/v0.6.0

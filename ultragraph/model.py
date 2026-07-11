@@ -86,21 +86,44 @@ class GPT:
             b.requantize()
         self.head.requantize()
 
+    # -- persistence ----------------------------------------------------------
+    def save(self, path):
+        """Save the fp32 parameters. Restore with :meth:`load` onto a ``GPT`` built
+        with the same hyper-parameters (byte-exact for inference after re-quantize)."""
+        from .io import save_params
+        save_params([self], path)
+
+    def load(self, path):
+        """Load parameters saved by :meth:`save` into this model in place, then
+        re-quantize the ternary weights. Returns ``self``."""
+        from .io import load_params
+        load_params([self], path)
+        return self
+
     # -- generation -----------------------------------------------------------
-    def generate(self, prompt, n_new, temperature=1.0, top_k=None, seed=None):
-        """Autoregressive decode with a per-layer KV-cache. Returns ``prompt + n_new``
-        token ids. ``temperature <= 0`` is greedy (argmax)."""
-        rng = np.random.default_rng(seed)
+    def generate(self, prompt, n_new, temperature=1.0, top_k=None, top_p=None, seed=None, stream=False):
+        """Autoregressive decode with a per-layer KV-cache. ``temperature <= 0`` is
+        greedy; ``top_k`` / ``top_p`` (nucleus) truncate the sampling distribution.
+
+        Default returns ``prompt + n_new`` token ids. With ``stream=True`` returns a
+        generator that yields each *new* token id as it is produced."""
         ids = [int(t) for t in np.asarray(prompt, dtype=np.int64).reshape(-1)]
         if not ids:
             raise ValueError("prompt must be non-empty")
-        caches = [{"k": None, "v": None} for _ in self.blocks]
-        logits = self._decode(np.array(ids, dtype=np.int64)[None, :], caches)  # prime
-        for _ in range(int(n_new)):
-            nxt = self._sample(logits[0, -1], temperature, top_k, rng)
-            ids.append(nxt)
-            logits = self._decode(np.array([[nxt]], dtype=np.int64), caches)
+        it = self._stream(ids, int(n_new), temperature, top_k, top_p, seed)
+        if stream:
+            return it
+        ids.extend(it)
         return ids
+
+    def _stream(self, prompt_ids, n_new, temperature, top_k, top_p, seed):
+        rng = np.random.default_rng(seed)
+        caches = [{"k": None, "v": None} for _ in self.blocks]
+        logits = self._decode(np.array(prompt_ids, dtype=np.int64)[None, :], caches)  # prime
+        for _ in range(n_new):
+            nxt = self._sample(logits[0, -1], temperature, top_k, top_p, rng)
+            yield nxt
+            logits = self._decode(np.array([[nxt]], dtype=np.int64), caches)
 
     def _decode(self, ids, caches):
         x = self.embed(ids)
@@ -110,7 +133,7 @@ class GPT:
         return self.head.forward(self.norm(x)).data  # [B, T, vocab] fp32
 
     @staticmethod
-    def _sample(logits, temperature, top_k, rng):
+    def _sample(logits, temperature, top_k, top_p, rng):
         logits = logits.astype(np.float64)
         if temperature <= 0:
             return int(np.argmax(logits))
@@ -121,4 +144,12 @@ class GPT:
         z = logits - logits.max()
         p = np.exp(z)
         p /= p.sum()
+        if top_p and 0.0 < top_p < 1.0:
+            order = np.argsort(p)[::-1]
+            csum = np.cumsum(p[order])
+            cut = int(np.searchsorted(csum, top_p)) + 1  # smallest nucleus with cumprob >= top_p
+            keep = order[:cut]
+            masked = np.zeros_like(p)
+            masked[keep] = p[keep]
+            p = masked / masked.sum()
         return int(rng.choice(len(p), p=p))
