@@ -11,3 +11,5 @@ examples/data/train4k.log
 examples/data/hu_train.log
 examples/data/.loop_start
 examples/data/.wikicache/
+examples/data/hungarian.train.npz
+examples/data/hungarian.train.json
