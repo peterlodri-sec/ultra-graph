@@ -11284,3 +11284,49 @@ Válasz: Azt, szól vasár vere. Vidémellőlt!… Bunt erkarut-eseltemet: a »k
 Kérdés: Hogyan tudunk magunk kore epiteni egy eros tarsasagot?
 Válasz: Már valahet, hozót bob júngon
 
+
+
+# Enriched (non-LLM): grounded facts from hu.wikipedia
+Honfoglalás: Általános értelemben honfoglalásnak nevezzük azt a folyamatot, melynek során valamely nép egy kiválasztott területet birtokába vesz, abból a célból, hogy ott új hazát alapítson.
+
+Kérdés: Mit tudunk erről: Honfoglalás?
+Válasz: Általános értelemben honfoglalásnak nevezzük azt a folyamatot, melynek során valamely nép egy kiválasztott területet birtokába vesz, abból a célból, hogy ott új hazát alapítson.
+
+Mohácsi csata: A mohácsi csata (törökül: Mohaç Muharebesi) 1526.
+
+Kérdés: Mit tudunk erről: Mohácsi csata?
+Válasz: A mohácsi csata (törökül: Mohaç Muharebesi) 1526.
+
+Trianoni békeszerződés: A trianoni béke (alternatív megnevezései: békeszerződés vagy békediktátum) a történelmi Magyarország első világháború utáni felosztását rögzítette a nemzetközi jog számára értelmezhető dokumentumban, a Párizs környéki békeszerződések egyik elemeként.
+
+Kérdés: Mit tudunk erről: Trianoni békeszerződés?
+Válasz: A trianoni béke (alternatív megnevezései: békeszerződés vagy békediktátum) a történelmi Magyarország első világháború utáni felosztását rögzítette a nemzetközi jog számára értelmezhető dokumentumban, a Párizs környéki békeszerződések egyik elemeként.
+
+Az 1956-os forradalom: Az 1956-os forradalom és szabadságharc, vagy az 1956-os népfelkelés Magyarország népének a sztálinista terror és gazdaságpolitika elleni forradalma és a szovjet megszállás ellen folytatott szabadságharca, amely a 20.
+
+Kérdés: Mit tudunk erről: Az 1956-os forradalom?
+Válasz: Az 1956-os forradalom és szabadságharc, vagy az 1956-os népfelkelés Magyarország népének a sztálinista terror és gazdaságpolitika elleni forradalma és a szovjet megszállás ellen folytatott szabadságharca, amely a 20.
+
+Budapest: Budapest Magyarország fővárosa (1892-1949 között a hivatalos megnevezése: ‘székesfőváros’), egyben legnagyobb és legnépesebb települése, jelenleg az Európai Unió 9.
+
+Kérdés: Mit tudunk erről: Budapest?
+Válasz: Budapest Magyarország fővárosa (1892-1949 között a hivatalos megnevezése: ‘székesfőváros’), egyben legnagyobb és legnépesebb települése, jelenleg az Európai Unió 9.
+
+
+# Enriched (non-LLM): grounded facts from hu.wikipedia
+Honfoglalás: Általános értelemben honfoglalásnak nevezzük azt a folyamatot, melynek során valamely nép egy kiválasztott területet birtokába vesz, abból a célból, hogy ott új hazát alapítson.
+
+Gulyás (étel): A gulyás (németül: Gulasch, angolul: goulash) közeli rokonaival, a pörkölttel és a paprikással a legfontosabb parasztételek, amelyek a 19.
+
+Kérdés: Mit tudunk erről: Gulyás (étel)?
+Válasz: A gulyás (németül: Gulasch, angolul: goulash) közeli rokonaival, a pörkölttel és a paprikással a legfontosabb parasztételek, amelyek a 19.
+
+Magyar nyelv: A magyar nyelv az uráli nyelvcsalád tagja, azon belül a finnugor nyelvek közé tartozó ugor nyelvek egyike.
+
+Kérdés: Mit tudunk erről: Magyar nyelv?
+Válasz: A magyar nyelv az uráli nyelvcsalád tagja, azon belül a finnugor nyelvek közé tartozó ugor nyelvek egyike.
+
+Petőfi Sándor: Petőfi Sándor (született Petrovics Sándor, Kiskőrös, 1823.
+
+Kérdés: Mit tudunk erről: Petőfi Sándor?
+Válasz: Petőfi Sándor (született Petrovics Sándor, Kiskőrös, 1823.

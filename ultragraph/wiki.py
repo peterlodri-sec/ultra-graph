@@ -51,29 +51,29 @@ class MediaWikiClient:
             except (ValueError, OSError):
                 pass
         value = produce()
-        try:
-            path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
-        except OSError:
-            pass
+        if value is not None:  # never cache a failed fetch — let it retry next run
+            try:
+                path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+            except OSError:
+                pass
         return value
 
     # -- fetch ---------------------------------------------------------------
     def _fetch_page(self, title):
-        from mediawiki.exceptions import DisambiguationError, PageError
+        from mediawiki.exceptions import DisambiguationError
 
         try:
-            p = self._wiki.page(title, auto_suggest=False)
-        except DisambiguationError as e:
-            options = list(getattr(e, "options", None) or [])
-            if not options:
-                return None
             try:
+                p = self._wiki.page(title, auto_suggest=False)
+            except DisambiguationError as e:
+                options = list(getattr(e, "options", None) or [])
+                if not options:
+                    return None
                 p = self._wiki.page(options[0], auto_suggest=False)
-            except (PageError, DisambiguationError):
-                return None
-        except PageError:
+            return {"title": p.title, "summary": p.summary or "", "links": list(p.links), "url": p.url}
+        except Exception:
+            # PageError, intermittent API glitches (e.g. KeyError 'query'), or network — skip.
             return None
-        return {"title": p.title, "summary": p.summary or "", "links": list(p.links), "url": p.url}
 
     def page(self, title):
         """Cached page record ``{title, summary, links, url}`` (``None`` if missing)."""
