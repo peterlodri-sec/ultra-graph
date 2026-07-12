@@ -356,8 +356,14 @@ def cmd_compile(args: argparse.Namespace) -> None:
         out = Path(target) if target.endswith((".wasm", ".wat")) else model_path.with_suffix(".wasm")
         module = from_ultragraph(model)
         _save_wasm(module, out)
+    elif target == "rp2040" or target.endswith(".c"):
+        from .rp2040 import save_rp2040 as _save_rp2040
+
+        module = from_ultragraph(model)
+        out = Path(target) if target.endswith(".c") else model_path.with_suffix(".c")
+        _save_rp2040(module, out)
     else:
-        print(f"✗ Unknown target: {target} (supported: ugm, wasm)", file=sys.stderr)
+        print(f"✗ Unknown target: {target} (supported: ugm, wasm, rp2040)", file=sys.stderr)
         raise SystemExit(1)
 
 
@@ -447,6 +453,74 @@ def _cmd_run_jit(args: argparse.Namespace) -> None:
     print("╚══ Generate: ug compile model.ugm --target wasm")
 
 
+# ---------------------------------------------------------------------------
+# history  — inspect + record activation history
+# ---------------------------------------------------------------------------
+def cmd_history(args: argparse.Namespace) -> None:
+    from .ugm import load_ugm, save_ugm
+
+    path = Path(args.file)
+    if not path.exists():
+        print(f"✗ {path} not found", file=sys.stderr)
+        raise SystemExit(1)
+
+    module = load_ugm(str(path))
+
+    if args.clear:
+        module.history = None
+        save_ugm(path, module)
+        print(f"✓ Cleared history from {path.name}")
+        return
+
+    if module.history is None or module.history.buffer is None:
+        print(f"{path.name}: no history recorded")
+        print("  Record with: ug run model.ugm --record")
+        return
+
+    buf = module.history.buffer
+    n_nodes, depth = buf.shape
+    print(f"{path.name}: {n_nodes} nodes × {depth} depth")
+    for i in range(min(n_nodes, 20)):
+        row = buf[i]
+        nonzero = row[row != 0]
+        if nonzero.size == 0:
+            print(f"  node[{i}]: all zeros")
+        else:
+            mean = float(nonzero.mean())
+            mx = int(nonzero.max())
+            mn = int(nonzero.min())
+            print(f"  node[{i}]: mean={mean:.1f} range=[{mn}, {mx}] ({nonzero.size}/{depth} active)")
+    if n_nodes > 20:
+        print(f"  ... ({n_nodes - 20} more)")
+
+
+def _record_history(module, x):
+    """Run forward pass and record int8 activations to history buffer."""
+    from .quant import quantize_act_int8
+    from .ugm import UGMHistorySegment
+
+    out = module.run(x)
+    flat = out.reshape(-1, out.shape[-1]) if out.ndim >= 2 else out.reshape(1, -1)
+    q, _ = quantize_act_int8(flat.mean(axis=0))
+
+    depth = module.history.depth if module.history and module.history.depth else 100
+    n_nodes = min(len(q), len(module.trees))
+
+    if module.history is None or module.history.buffer is None:
+        buf = np.zeros((n_nodes, depth), dtype=np.int8)
+    else:
+        buf = module.history.buffer.copy()
+
+    # Shift ring buffer
+    buf = np.roll(buf, -1, axis=1)
+    buf[:, -1] = 0
+    for i in range(min(n_nodes, len(q))):
+        buf[i, -1] = q[i]
+
+    module.history = UGMHistorySegment(n_nodes=n_nodes, depth=depth, buffer=buf)
+    return out
+
+
 
 # ---------------------------------------------------------------------------
 # main
@@ -479,12 +553,17 @@ def main(argv: list[str] | None = None) -> None:
 
     p_compile = sub.add_parser("compile", help="Compile model to .ugm")
     p_compile.add_argument("model", help="Deployed .npz checkpoint")
-    p_compile.add_argument("target", nargs="?", default="ugm", help="Target format (ugm, wasm)")
+    p_compile.add_argument("target", nargs="?", default="ugm", help="Target format (ugm, wasm, rp2040)")
 
     p_run = sub.add_parser("run", help="Execute a .ugm module")
     p_run.add_argument("file", help="Path to .ugm file")
     p_run.add_argument("--info", action="store_true", help="Print module info only")
     p_run.add_argument("--jit", action="store_true", help="Profile and suggest JIT optimizations")
+    p_run.add_argument("--record", action="store_true", help="Record activation history and save")
+
+    p_history = sub.add_parser("history", help="Inspect activation history in .ugm")
+    p_history.add_argument("file", help="Path to .ugm file")
+    p_history.add_argument("--clear", action="store_true", help="Clear history segment")
 
     p_link = sub.add_parser("link", help="Link two .ugm modules")
     p_link.add_argument("model_a", help="First .ugm module")
@@ -510,8 +589,18 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "run":
         if args.jit:
             _cmd_run_jit(args)
+        elif args.record:
+            from .ugm import load_ugm, save_ugm
+            module = load_ugm(Path(args.file))
+            in_dim = module.trees[0].in_dim if module.trees else 1
+            x = np.random.randn(1, in_dim).astype(np.float32)
+            _record_history(module, x)
+            save_ugm(Path(args.file), module)
+            print(f"✓ Recorded history to {args.file}")
         else:
             cmd_run(args)
+    elif args.command == "history":
+        cmd_history(args)
 
 
 if __name__ == "__main__":
