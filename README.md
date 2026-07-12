@@ -1,8 +1,10 @@
 # ultragraph
 
 [![CI](https://github.com/peterlodri-sec/ultra-graph/actions/workflows/ci.yml/badge.svg)](https://github.com/peterlodri-sec/ultra-graph/actions/workflows/ci.yml)
-[![python](https://img.shields.io/badge/python-3.13%2B-free--threading-00d4ff)](pyproject.toml)
+[![pypi](https://img.shields.io/pypi/v/ultragraph-1bit?color=00d4ff)](https://pypi.org/project/ultragraph-1bit/)
+[![python](https://img.shields.io/pypi/pyversions/ultragraph-1bit?color=b48bff)](https://pypi.org/project/ultragraph-1bit/)
 [![license](https://img.shields.io/badge/license-MIT-b48bff)](LICENSE)
+[![ruff](https://img.shields.io/badge/code%20style-ruff-261230)](https://github.com/astral-sh/ruff)
 
 A pure-Python (+ numpy) **byte-graph that is a 1-bit (ternary) LLM**.
 
