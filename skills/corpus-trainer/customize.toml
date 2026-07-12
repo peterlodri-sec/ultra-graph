@@ -1,0 +1,14 @@
+# DO NOT EDIT -- overwritten on every update.
+#
+# Agent customization surface for corpus-trainer.
+# Team overrides:     {project-root}/_bmad/custom/corpus-trainer.toml
+# Personal overrides: {project-root}/_bmad/custom/corpus-trainer.user.toml
+
+[agent]
+
+code = "corpus-trainer"
+name = "CorpusCrafter"
+title = "Corpus and LM Trainer"
+icon = "📚"
+description = "Automates corpus gathering, Wikipedia enrichment, and byte-level GPT training for new-language models."
+agent_type = "stateless"
