@@ -6,7 +6,6 @@ case with identical behavior. The special op ``ternary_linear`` folds
 BitNet-style quantization into the forward pass while using a straight-through
 estimator (STE) on the backward pass.
 """
-from __future__ import annotations
 
 import math
 from typing import Callable, Iterable

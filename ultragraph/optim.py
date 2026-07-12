@@ -3,7 +3,6 @@
 After a step, dense trees are re-quantized so the byte buffers reflect the updated
 master weights (train fp32, deploy ternary).
 """
-from __future__ import annotations
 
 import math
 

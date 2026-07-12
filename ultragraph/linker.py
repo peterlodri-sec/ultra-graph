@@ -19,7 +19,6 @@ Usage::
     save_ugm("combined.ugm", merged)
 """
 
-from __future__ import annotations
 
 from .ugm import (
     ACT_IDENTITY,

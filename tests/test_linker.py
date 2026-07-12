@@ -1,5 +1,4 @@
 """Tests for the .ugm model linker (P3)."""
-from __future__ import annotations
 
 import tempfile
 from pathlib import Path

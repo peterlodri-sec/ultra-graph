@@ -5,7 +5,6 @@ Trains a `Mesh` of small byte-level `GPT` experts on a toy corpus using Adam wit
 once), inspects the router gate, then decodes jointly with `Mesh.generate` and shows
 batched generation from a single expert. Runs under `uv run python examples/mesh_lm.py`.
 """
-from __future__ import annotations
 
 import numpy as np
 

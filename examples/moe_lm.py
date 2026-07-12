@@ -3,7 +3,6 @@
 Embedding -> RMSNorm -> ternary MoE (residual) -> unembed, over UTF-8 bytes.
 Run: uv run python examples/moe_lm.py
 """
-from __future__ import annotations
 
 import numpy as np
 

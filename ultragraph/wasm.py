@@ -21,7 +21,6 @@ Usage::
     save_wasm(module, "model.wasm")         # auto-compile via wat2wasm
 """
 
-from __future__ import annotations
 
 import subprocess
 from pathlib import Path

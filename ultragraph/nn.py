@@ -1,5 +1,4 @@
 """Layer patterns expressed as trees. Layers are configs over the byte-graph."""
-from __future__ import annotations
 
 import math
 

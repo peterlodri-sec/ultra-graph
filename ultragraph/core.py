@@ -9,7 +9,6 @@ Three levels:
 ``>>`` is overloaded by operand type: ``node >> node`` builds a micro-edge inside a
 tree; ``tree >> tree`` builds an ultra-edge between trees.
 """
-from __future__ import annotations
 
 from typing import Iterator
 

@@ -11,7 +11,6 @@ single byte-graph.
 Writes `examples/data/hungarian_history.svg` (a themed timeline) and
 `hungarian_history_macro.svg` (the library's own ultra-graph view).
 """
-from __future__ import annotations
 
 import os
 

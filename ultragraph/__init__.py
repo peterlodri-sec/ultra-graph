@@ -2,7 +2,6 @@
 
 node/edge (1 byte each) -> tree (a whole net) -> ultra-edge wiring -> ultra-graph.
 """
-from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version

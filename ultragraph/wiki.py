@@ -12,7 +12,6 @@ repeated runs never refetch.
 
 Requires the optional ``wiki`` extra:  ``uv sync --extra wiki``.
 """
-from __future__ import annotations
 
 import hashlib
 import json

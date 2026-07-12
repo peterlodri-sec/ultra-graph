@@ -1,5 +1,4 @@
 """Byte-exact save/load of an ultra-graph (numpy .npz container + JSON header)."""
-from __future__ import annotations
 
 import json
 

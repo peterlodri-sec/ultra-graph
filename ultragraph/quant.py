@@ -3,7 +3,6 @@
 Weights are ternary {-1, 0, +1}; activations are int8. Each quantized value fits
 in one byte, honoring the ultragraph byte contract.
 """
-from __future__ import annotations
 
 import numpy as np
 

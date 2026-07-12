@@ -14,7 +14,6 @@ Public API
 Colour convention for a byte value ``v`` in ``[-128, 127]``:
 negative -> blue, zero -> light gray, positive -> red (linear on intensity).
 """
-from __future__ import annotations
 
 import math
 

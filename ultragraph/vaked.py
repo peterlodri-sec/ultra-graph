@@ -9,7 +9,6 @@ node bytes encode the node kind and edge bytes encode the edge label.
 produce that graph first. It is optional: it requires an importable ``vakedc``
 (vendored at the repo root). ultragraph itself never imports vakedc at module load.
 """
-from __future__ import annotations
 
 from .core import Tree
 

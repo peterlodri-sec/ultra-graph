@@ -9,7 +9,6 @@ answers, everything here is real text — a clean, repeatable data pipeline.
     uv run --extra wiki python examples/enrich_corpus.py            # wiki facts + Q&A
     WITH_BOOKS=1 uv run --extra wiki python examples/enrich_corpus.py   # + Gutenberg prose
 """
-from __future__ import annotations
 
 import os
 import re

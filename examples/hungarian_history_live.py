@@ -10,7 +10,6 @@ circular node-link SVG reading titles from ``tree.adhoc["labels"]``.
 Writes `examples/data/hungarian_history_live.svg`. Page records are cached under
 `examples/data/.wikicache/`, so a second run is offline and instant.
 """
-from __future__ import annotations
 
 import math
 import os

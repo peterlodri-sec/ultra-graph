@@ -13,7 +13,6 @@ Usage::
     ug compile model.ugm --target rp2040
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 

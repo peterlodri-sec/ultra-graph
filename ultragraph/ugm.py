@@ -60,7 +60,6 @@ Usage::
     module.run(input_array)                # interpret
 """
 
-from __future__ import annotations
 
 import json
 import struct
@@ -93,7 +92,7 @@ SEG_METADATA = 2
 
 
 # -- data types ---------------------------------------------------------------
-@dataclass
+@dataclass(slots=True)
 class UGMTree:
     """A tree definition in the .ugm format."""
     kind: int = KIND_DENSE       # 0=dense, 1=sparse
@@ -111,14 +110,14 @@ class UGMTree:
     eval: list[int] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(slots=True)
 class UGMUltraEdge:
     src_idx: int = 0
     dst_idx: int = 0
     kind: int = UE_PLAIN
 
 
-@dataclass
+@dataclass(slots=True)
 class UGMHeader:
     version: int = _VERSION
     flags: int = 0
@@ -130,7 +129,7 @@ class UGMHeader:
     weights_size: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class UGMHistorySegment:
     """Optional history segment — per-node activation ring buffers."""
     n_nodes: int = 0
@@ -138,13 +137,13 @@ class UGMHistorySegment:
     buffer: np.ndarray | None = None  # int8[n_nodes, depth]
 
 
-@dataclass
+@dataclass(slots=True)
 class UGMMetadata:
     """Optional metadata segment — JSON blob."""
     data: dict = field(default_factory=dict)
 
 
-@dataclass
+@dataclass(slots=True)
 class UGMFile:
     """A complete .ugm module loaded in memory."""
     header: UGMHeader = field(default_factory=UGMHeader)

@@ -6,7 +6,6 @@ Exposes the deployed Anonymus GPT and the byte tokenizer as MCP tools. Run with:
 
 The SSE endpoint defaults to http://127.0.0.1:8000/sse.
 """
-from __future__ import annotations
 
 from pathlib import Path
 

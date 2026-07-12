@@ -3,7 +3,6 @@
 The simplest honest tokenizer: a token is a byte. No training, no vocab file, no
 out-of-vocabulary. Pairs with a 256-row embedding.
 """
-from __future__ import annotations
 
 import numpy as np
 

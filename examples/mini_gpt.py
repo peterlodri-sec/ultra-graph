@@ -4,7 +4,6 @@ A pre-norm transformer block (RMSNorm -> multi-head causal attention -> residual
 RMSNorm -> ternary MLP -> residual) trained with Adam over the fp32 masters, then
 re-quantized to ternary. Runs under `uv run python examples/mini_gpt.py`.
 """
-from __future__ import annotations
 
 import numpy as np
 

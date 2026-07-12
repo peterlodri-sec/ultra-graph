@@ -5,7 +5,6 @@ head) -> Adam over the fp32 masters -> re-quantized ternary weights -> KV-cached
 streaming generation. Save/load round-trips the trained model. Runs under
 `uv run python examples/gpt_lm.py`.
 """
-from __future__ import annotations
 
 import tempfile
 

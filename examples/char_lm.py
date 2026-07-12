@@ -7,7 +7,6 @@ loss decreasing, then greedily samples a short continuation.
 Run:
     uv run python examples/char_lm.py
 """
-from __future__ import annotations
 
 import numpy as np
 

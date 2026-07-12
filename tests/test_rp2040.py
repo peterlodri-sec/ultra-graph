@@ -1,5 +1,4 @@
 """Tests for RP2040 C code generation and history segment."""
-from __future__ import annotations
 
 import tempfile
 from pathlib import Path

@@ -1,5 +1,4 @@
 """Tests for the .ugm binary format."""
-from __future__ import annotations
 
 import tempfile
 from pathlib import Path

@@ -7,7 +7,6 @@ the byte-level ternary GPT in `anonymus_lm.py`.
 
     uv run python examples/fetch_gesta.py
 """
-from __future__ import annotations
 
 import os
 import re

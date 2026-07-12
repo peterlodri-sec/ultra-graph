@@ -3,7 +3,6 @@
 Trains a residual attention + MLP block on a short char corpus, then greedily
 samples a few characters. Run with: ``uv run python examples/transformer_lm.py``.
 """
-from __future__ import annotations
 
 import numpy as np
 

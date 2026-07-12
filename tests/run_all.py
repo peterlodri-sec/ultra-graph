@@ -1,5 +1,4 @@
 """Dependency-free test runner (no pytest required): `python tests/run_all.py`."""
-from __future__ import annotations
 
 import importlib
 import os

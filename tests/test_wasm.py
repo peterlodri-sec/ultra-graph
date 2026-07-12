@@ -1,5 +1,4 @@
 """Tests for the .ugm → WASM compiler."""
-from __future__ import annotations
 
 import re
 import tempfile

@@ -7,7 +7,6 @@ is one byte-graph. ``generate`` decodes autoregressively with a per-layer
 KV-cache — and because activation quantization is per token, a cached step is
 byte-for-byte the same as the full forward pass at that position.
 """
-from __future__ import annotations
 
 import numpy as np
 

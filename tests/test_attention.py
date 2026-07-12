@@ -1,5 +1,4 @@
 """Tests for the ternary self-attention block (``ultragraph.nn.Attention``)."""
-from __future__ import annotations
 
 import numpy as np
 

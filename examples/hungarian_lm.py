@@ -9,7 +9,6 @@ byte tokenizer handles the accents (á é í ó ö ő ú ü ű) losslessly. Weig
     uv run python examples/hungarian_lm.py          # ~3000 steps
     STEPS=6000 uv run python examples/hungarian_lm.py
 """
-from __future__ import annotations
 
 import json
 import os

@@ -5,7 +5,6 @@ The default byte-graph stores one ternary weight per byte (8 bits) to keep the
 values into a single byte via base-3 (3**5 = 243 < 256): 8 bits / 5 weights =
 1.6 bits per weight, a 5x shrink and within a whisker of the log2(3) ~ 1.58 limit.
 """
-from __future__ import annotations
 
 import numpy as np
 

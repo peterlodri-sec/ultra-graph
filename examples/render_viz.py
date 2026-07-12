@@ -8,7 +8,6 @@ module and writes them into ``./out/``.
 Run:
     uv run python examples/render_viz.py
 """
-from __future__ import annotations
 
 import os
 

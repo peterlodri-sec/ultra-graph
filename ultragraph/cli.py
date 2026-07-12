@@ -12,7 +12,6 @@ Usage::
     ug run <file.ugm>            Execute a .ugm module
 """
 
-from __future__ import annotations
 
 import argparse
 import json
@@ -345,26 +344,25 @@ def cmd_compile(args: argparse.Namespace) -> None:
         print("⚠ Training checkpoint detected; need deployed .npz", file=sys.stderr)
         raise SystemExit(1)
 
-    if target == "ugm" or target.endswith(".ugm"):
-        out = Path(target) if target.endswith(".ugm") else model_path.with_suffix(".ugm")
-        module = from_ultragraph(model)
-        save_ugm(out, module)
-        print(f"✓ Compiled {model_path.name} → {out} ({out.stat().st_size / 1024:.0f} KB)")
-    elif target == "wasm" or target.endswith(".wasm"):
-        from .wasm import save_wasm as _save_wasm
-
-        out = Path(target) if target.endswith((".wasm", ".wat")) else model_path.with_suffix(".wasm")
-        module = from_ultragraph(model)
-        _save_wasm(module, out)
-    elif target == "rp2040" or target.endswith(".c"):
-        from .rp2040 import save_rp2040 as _save_rp2040
-
-        module = from_ultragraph(model)
-        out = Path(target) if target.endswith(".c") else model_path.with_suffix(".c")
-        _save_rp2040(module, out)
-    else:
-        print(f"✗ Unknown target: {target} (supported: ugm, wasm, rp2040)", file=sys.stderr)
-        raise SystemExit(1)
+    match target:
+        case _ if target == "ugm" or target.endswith(".ugm"):
+            out = Path(target) if target.endswith(".ugm") else model_path.with_suffix(".ugm")
+            module = from_ultragraph(model)
+            save_ugm(out, module)
+            print(f"✓ Compiled {model_path.name} → {out} ({out.stat().st_size / 1024:.0f} KB)")
+        case _ if target == "wasm" or target.endswith(".wasm"):
+            from .wasm import save_wasm as _save_wasm
+            out = Path(target) if target.endswith((".wasm", ".wat")) else model_path.with_suffix(".wasm")
+            module = from_ultragraph(model)
+            _save_wasm(module, out)
+        case _ if target == "rp2040" or target.endswith(".c"):
+            from .rp2040 import save_rp2040 as _save_rp2040
+            module = from_ultragraph(model)
+            out = Path(target) if target.endswith(".c") else model_path.with_suffix(".c")
+            _save_rp2040(module, out)
+        case _:
+            print(f"✗ Unknown target: {target} (supported: ugm, wasm, rp2040)", file=sys.stderr)
+            raise SystemExit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -377,13 +375,14 @@ def cmd_link(args: argparse.Namespace) -> None:
     a = load_ugm(args.model_a)
     b = load_ugm(args.model_b)
 
-    if args.mode == "sequential":
-        result = link_sequential([a, b])
-    elif args.mode in ("sum", "avg", "max"):
-        result = link_parallel([a, b], mode=args.mode)
-    else:
-        print(f"✗ Unknown link mode: {args.mode} (use sequential, sum, avg, max)", file=sys.stderr)
-        raise SystemExit(1)
+    match args.mode:
+        case "sequential":
+            result = link_sequential([a, b])
+        case "sum" | "avg" | "max":
+            result = link_parallel([a, b], mode=args.mode)
+        case _:
+            print(f"✗ Unknown link mode: {args.mode} (use sequential, sum, avg, max)", file=sys.stderr)
+            raise SystemExit(1)
 
     out = Path(args.output) if args.output else Path(f"{Path(args.model_a).stem}_linked.ugm")
     save_ugm(out, result)
@@ -752,24 +751,24 @@ def main(argv: list[str] | None = None) -> None:
     p_link.add_argument("--output", "-o", help="Output .ugm path")
 
     args = parser.parse_args(argv)
-    if args.command == "pull":
-        cmd_pull(args)
-    elif args.command == "new":
-        cmd_new(args)
-    elif args.command == "report":
-        cmd_report(args)
-    elif args.command == "practice":
-        cmd_practice(args)
-    elif args.command == "breed":
-        cmd_breed(args)
-    elif args.command == "compile":
-        cmd_compile(args)
-    elif args.command == "link":
-        cmd_link(args)
-    elif args.command == "run":
-        if args.jit:
+    match args.command:
+        case "pull":
+            cmd_pull(args)
+        case "new":
+            cmd_new(args)
+        case "report":
+            cmd_report(args)
+        case "practice":
+            cmd_practice(args)
+        case "breed":
+            cmd_breed(args)
+        case "compile":
+            cmd_compile(args)
+        case "link":
+            cmd_link(args)
+        case "run" if args.jit:
             _cmd_run_jit(args)
-        elif args.record:
+        case "run" if args.record:
             from .ugm import load_ugm, save_ugm
             module = load_ugm(Path(args.file))
             in_dim = module.trees[0].in_dim if module.trees else 1
@@ -777,18 +776,18 @@ def main(argv: list[str] | None = None) -> None:
             _record_history(module, x)
             save_ugm(Path(args.file), module)
             print(f"✓ Recorded history to {args.file}")
-        else:
+        case "run":
             cmd_run(args)
-    elif args.command == "history":
-        cmd_history(args)
-    elif args.command == "publish":
-        cmd_publish(args)
-    elif args.command == "search":
-        cmd_search(args)
-    elif args.command == "spar":
-        cmd_spar(args)
-    elif args.command == "temperature":
-        cmd_taste(args)
+        case "history":
+            cmd_history(args)
+        case "publish":
+            cmd_publish(args)
+        case "search":
+            cmd_search(args)
+        case "spar":
+            cmd_spar(args)
+        case "temperature":
+            cmd_taste(args)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ weights, causal attention matrix) plus an architecture diagram.
 
 Run: uv run python assets/make_figures.py
 """
-from __future__ import annotations
 
 import math
 import os

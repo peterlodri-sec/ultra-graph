@@ -10,7 +10,6 @@ ternary {-1,0,+1}; the whole model is a byte-graph. Fetch the corpus first with
 
 Writes a deployed (bit-packed, ~1.6 bits/weight) checkpoint next to the corpus.
 """
-from __future__ import annotations
 
 import os
 

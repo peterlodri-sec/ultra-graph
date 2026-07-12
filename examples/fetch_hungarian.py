@@ -6,7 +6,6 @@ the training set for a genuinely Hungarian (not Latin) byte-level ternary GPT.
 
     uv run python examples/fetch_hungarian.py
 """
-from __future__ import annotations
 
 import os
 import re

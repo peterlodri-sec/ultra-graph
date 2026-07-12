@@ -3,7 +3,6 @@
 matplotlib is imported lazily inside each function; this module imports fine
 without it (the pure-SVG backend in ultragraph.viz.svg is always available).
 """
-from __future__ import annotations
 
 import math
 
