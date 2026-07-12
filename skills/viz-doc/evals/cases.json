@@ -1,0 +1,24 @@
+[
+  {
+    "id": "render-mlp-svg",
+    "input": "I have an mlp([4, 16, 2]) model. How do I visualize it?",
+    "rubric": [
+      "Mentions viz.ultragraph_svg() for the macro view of all trees wired by ultra-edges",
+      "Mentions viz.tree_svg() for viewing individual dense trees",
+      "Notes that SVG is always available (stdlib, no optional deps)",
+      "Explains _repr_svg_ hooks for Jupyter notebook rendering"
+    ],
+    "state_prefix": null
+  },
+  {
+    "id": "model-card-contents",
+    "input": "I just trained a GPT on Latin text. What should I include in a model card?",
+    "rubric": [
+      "Mentions architecture hyperparameters (vocab, d_model, n_layers, n_heads)",
+      "Mentions weight statistics (sparsity, positive/negative ratio per layer)",
+      "Mentions sample output at different temperatures",
+      "Mentions deployed checkpoint file size and bit density"
+    ],
+    "state_prefix": null
+  }
+]

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "write-tanh-op",
+    "input": "I need to add a Tanh operation to the autograd Tensor. It should compose from existing primitives and have a working backward pass.",
+    "rubric": [
+      "Responds with a concrete code example for a Tanh op on Tensor",
+      "The example shows _child() being used to create the output tensor",
+      "The _backward closure computes 1 - tanh(x)^2 as the local gradient",
+      "Mentions that numeric gradient tests in test_autograd.py validate new ops"
+    ],
+    "state_prefix": null
+  },
+  {
+    "id": "explain-byte-contract",
+    "input": "What's the byte contract and why does it matter?",
+    "rubric": [
+      "Explains that one node = one int8 activation",
+      "Explains that one edge weight = one ternary value in {-1,0,+1}",
+      "Distinguishes semantic values from structural adjacency bookkeeping",
+      "Connects the contract to the motivation (deployed inference from byte buffers)"
+    ],
+    "state_prefix": null
+  }
+]

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "plan-pipeline",
+    "input": "I want to build a 1-bit LLM for Swahili. Walk me through the pipeline from scratch.",
+    "rubric": [
+      "Names fetch-corpus as the first step (finding public-domain Swahili text)",
+      "Mentions enrich-corpus with Wikipedia facts as an optional second step",
+      "Describes train-lm with GPT architecture and resume-training pattern",
+      "Mentions deploy-checkpoint as the final step with bit-packed output"
+    ],
+    "state_prefix": null
+  },
+  {
+    "id": "explain-deploy",
+    "input": "What's the difference between a regular checkpoint and a deployed one?",
+    "rubric": [
+      "Explains that regular checkpoints store fp32 master weights",
+      "Explains that deployed checkpoints store bit-packed ternary bytes (~1.6 bits/weight)",
+      "Mentions GPT.save_deployed() and GPT.load_deployed() as the API",
+      "Notes that deployed models run inference-only with no fp32 masters"
+    ],
+    "state_prefix": null
+  }
+]

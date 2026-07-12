@@ -11,3 +11,10 @@ Start by reading `AGENTS.md` at the repo root for the full project reference (ar
 - Custom autograd (`ultragraph.autograd.Tensor`), not PyTorch.
 - Only numpy at module level; optional deps imported lazily.
 - `vakedc/` is vendored but not importable (de-indented upstream loss). Excluded from CI and PyPI.
+
+## BMad agents
+
+Three agents live under `skills/` — activate by describing the task:
+- **ByteSmith** (`skills/ultragraph-dev/`) — writes autograd ops, wires trees, trains models, explains internals
+- **CorpusCrafter** (`skills/corpus-trainer/`) — fetches/enriches corpora, trains/deploys byte-level GPTs for any language
+- **GraphViz** (`skills/viz-doc/`) — renders SVG/PNG visualizations and generates model card reports

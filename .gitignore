@@ -17,3 +17,6 @@ examples/data/hu_seg*.log
 .loop_start*
 .serena/
 .remember/
+_bmad-output/
+skills/reports/
+_bmad/config.user.yaml

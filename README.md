@@ -193,6 +193,18 @@ relations are micro-edges, and higher-level structure is ultra-edges (`===`).
 uv run --extra mcp python mcp_server/server.py   # -> http://127.0.0.1:8000/sse
 ```
 
+## BMad agents
+
+Three BMad agents live under `skills/` to help develop and use the library:
+
+| Agent | Folder | What it does |
+|-------|--------|-------------|
+| **ByteSmith** 🔬 | `skills/ultragraph-dev/` | Byte-graph coding agent — writes autograd ops, wires trees, trains models, explains internals |
+| **CorpusCrafter** 📚 | `skills/corpus-trainer/` | Automates corpus gathering, Wikipedia enrichment, and byte-level GPT training for any language |
+| **GraphViz** 📊 | `skills/viz-doc/` | Renders SVG/PNG model visualizations and generates model card reports from checkpoints |
+
+Each is a stateless skill (SKILL.md + capability references + customize.toml) activated by describing the task.
+
 ## Tasks
 
 ```sh
