@@ -126,33 +126,72 @@ text = mesh.generate([72, 105], n_new=64, temperature=0.8)   # joint KV-cached d
 sequence and mixes the experts' logits per sequence (soft, or top-k). Router and every
 expert train together — a graph of minds, still all ternary bytes underneath.
 
-## The first 1-bit Hungarian LLM
-
-`examples/anonymus_lm.py` trains a byte-level ternary `GPT` on the **_Gesta Hungarorum_**
-of Anonymus (c. 1200), the founding chronicle of the Hungarian nation (public-domain
-Latin). Every weight is a trit `{−1, 0, +1}`; the trained model deploys to a **196 KB**
-bit-packed checkpoint (`examples/data/anonymus.gpt.npz`).
-
-```sh
-uv run python examples/fetch_gesta.py     # pull + clean the corpus (~94 KB)
-uv run python examples/anonymus_lm.py     # train (~1500 steps) -> deployed 1-bit checkpoint
-```
-
-```python
-from ultragraph import GPT, ByteTokenizer
-tok = ByteTokenizer()
-m = GPT.load_deployed("examples/data/anonymus.gpt.npz")
-print(tok.decode(m.generate(tok.encode("Almus dux "), n_new=90, temperature=0.8, top_p=0.9)))
-# -> "Almus dux fuersis marpalere ... dux cum patis se ... terras suis ..."
-```
-
-It writes in Anonymus's register — a 384k-param ternary net that learned medieval Latin
-from 94 KB, running from ~1.6-bit weights.
-
 `generate` decodes with a per-layer **KV-cache**; since activations are quantized
 per token, a cached step is byte-for-byte the full-forward result at that position.
 Positions come from **RoPE** (rotary embeddings) — relative, and `offset`-aware so
 they line up across cached steps.
+
+## Guide — common recipes
+
+| Goal | Command |
+|------|---------|
+| Install | `pip install ultragraph-1bit` (extras: `viz`, `mcp`, `wiki`) |
+| Train a byte-level GPT | `uv run python examples/gpt_lm.py` |
+| Mixture of full models | `uv run python examples/mesh_lm.py` |
+| 1-bit Latin LLM (Anonymus) | `fetch_gesta.py` → `anonymus_lm.py` |
+| 1-bit Hungarian LLM (resumable) | `fetch_hungarian.py` → `hungarian_lm.py` |
+| Enrich the corpus (no LLM) | `uv run --extra wiki python examples/enrich_corpus.py` |
+| History graph — curated | `uv run python examples/hungarian_history.py` |
+| History graph — live from Wikipedia | `uv run --extra wiki python examples/hungarian_history_live.py` |
+| Serve over MCP (SSE) | `uv run --extra mcp python mcp_server/server.py` |
+| Dev container | open in VS Code → *Reopen in Container* |
+
+## Ternary language models on real corpora
+
+Two byte-level ternary `GPT`s trained end-to-end on public-domain text; both deploy to
+tiny bit-packed checkpoints that run from the trits alone:
+
+- **Latin** — `examples/anonymus_lm.py` on the *Gesta Hungarorum* of Anonymus (c. 1200),
+  the Hungarian founding chronicle (~94 KB) → **196 KB** checkpoint.
+  Sample: `GPT.load_deployed("examples/data/anonymus.gpt.npz")` →
+  *"Almus dux … dux cum patis se … terras suis …"*.
+- **Hungarian** — `examples/hungarian_lm.py` on ~450 KB of public-domain Hungarian
+  literature (Arany János + prose, pulled from Project Gutenberg by `fetch_hungarian.py`).
+  Training is **resumable** — it saves the fp32 masters + step state and continues across
+  runs (`TOTAL`/`STEPS` env vars, periodic checkpoints), so it converges past any
+  wall-clock cap.
+
+```python
+from ultragraph import GPT, ByteTokenizer
+tok = ByteTokenizer()
+m = GPT.load_deployed("examples/data/hungarian.gpt.npz")
+print(tok.decode(m.generate(tok.encode("A magyar "), n_new=90, temperature=0.8, top_p=0.9)))
+```
+
+**Corpus tooling** — `examples/enrich_corpus.py` is a **non-LLM** gatherer: it pulls
+grounded facts from Hungarian Wikipedia (via `ultragraph.wiki`), turns them into
+definition + `Kérdés:/Válasz:` lines, dedups against the corpus, and appends
+(idempotent, re-runnable).
+
+## Knowledge graphs — curated & live
+
+The byte-graph data model doubles as a knowledge graph: entities are `Tree` nodes,
+relations are micro-edges, and higher-level structure is ultra-edges (`===`).
+
+- **Curated** — `examples/hungarian_history.py` builds Hungarian history as one
+  ultra-graph (13 eras, 59 nodes) and renders a themed timeline SVG.
+- **Live** — `examples/hungarian_history_live.py` builds it *dynamically* from
+  **hu.wikipedia** via `ultragraph.wiki.build_wiki_graph`, scraping pages + links (with
+  an on-disk cache) into a sparse `Tree`.
+
+## MCP server
+
+`mcp_server/server.py` exposes the library over MCP (SSE transport) with tools
+`anonymus_generate`, `ultragraph_info`, and `tokenize_preview`:
+
+```sh
+uv run --extra mcp python mcp_server/server.py   # -> http://127.0.0.1:8000/sse
+```
 
 ## Tasks
 
@@ -177,6 +216,10 @@ ultragraph/tokenize.py  byte-level tokenizer (ByteTokenizer, vocab 256)
 ultragraph/vaked.py      optional vaked lowering (lower_graph, compile_vaked via vendored vakedc)
 ultragraph/viz/         svg.py (pure-SVG) + mpl.py (optional matplotlib) — micro / macro / byte-heatmap
 ultragraph/io.py        byte-exact save / load (optional packed weights); save_params/load_params
+ultragraph/wiki.py      optional MediaWiki client + build_wiki_graph (live hu.wikipedia -> ultra-graph)
+mcp_server/server.py    optional MCP server (SSE) exposing the library as tools
+examples/               char/gpt/mesh/anonymus/hungarian LMs, history graphs, corpus fetch + enrich
+.devcontainer/          VS Code dev container (Python 3.12 + uv + ruff)
 ```
 
 Design spec: `docs/superpowers/specs/2026-07-10-ultragraph-design.md`.

@@ -11284,8 +11284,6 @@ Válasz: Azt, szól vasár vere. Vidémellőlt!… Bunt erkarut-eseltemet: a »k
 Kérdés: Hogyan tudunk magunk kore epiteni egy eros tarsasagot?
 Válasz: Már valahet, hozót bob júngon
 
-
-
 # Enriched (non-LLM): grounded facts from hu.wikipedia
 Honfoglalás: Általános értelemben honfoglalásnak nevezzük azt a folyamatot, melynek során valamely nép egy kiválasztott területet birtokába vesz, abból a célból, hogy ott új hazát alapítson.
 
@@ -11311,10 +11309,6 @@ Budapest: Budapest Magyarország fővárosa (1892-1949 között a hivatalos megn
 
 Kérdés: Mit tudunk erről: Budapest?
 Válasz: Budapest Magyarország fővárosa (1892-1949 között a hivatalos megnevezése: ‘székesfőváros’), egyben legnagyobb és legnépesebb települése, jelenleg az Európai Unió 9.
-
-
-# Enriched (non-LLM): grounded facts from hu.wikipedia
-Honfoglalás: Általános értelemben honfoglalásnak nevezzük azt a folyamatot, melynek során valamely nép egy kiválasztott területet birtokába vesz, abból a célból, hogy ott új hazát alapítson.
 
 Gulyás (étel): A gulyás (németül: Gulasch, angolul: goulash) közeli rokonaival, a pörkölttel és a paprikással a legfontosabb parasztételek, amelyek a 19.
 
