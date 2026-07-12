@@ -4,7 +4,7 @@
 default:
     @just --list
 
-# Create/sync the uv-managed environment (Python >=3.14, numpy, pytest).
+# Create/sync the uv-managed environment (Python >=3.13, numpy, pytest).
 install:
     uv sync
 

@@ -13,7 +13,7 @@ A pure-Python (+ numpy) **byte-graph that is a 1-bit (ternary) LLM**. MIT-licens
 | Typecheck | none (no mypy/pyright in project) |
 | Syntax check | `just check` (`python -m compileall ultragraph tests examples`) |
 | Build | `uv build` |
-| CI | `.github/workflows/ci.yml` — `ruff check` + `pytest` on 3.11 & 3.13 |
+| CI | `.github/workflows/ci.yml` — `ruff check` + `pytest` on 3.13 & 3.14 (incl. free-threading `3.14t`) |
 
 PyPI publish uses **trusted publishing (OIDC)** — no API token. Triggered by GitHub Release or `workflow_dispatch` (`.github/workflows/publish.yml`).
 

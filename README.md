@@ -1,7 +1,7 @@
 # ultragraph
 
 [![CI](https://github.com/peterlodri-sec/ultra-graph/actions/workflows/ci.yml/badge.svg)](https://github.com/peterlodri-sec/ultra-graph/actions/workflows/ci.yml)
-[![python](https://img.shields.io/badge/python-3.11%2B-00d4ff)](pyproject.toml)
+[![python](https://img.shields.io/badge/python-3.13%2B-free--threading-00d4ff)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-b48bff)](LICENSE)
 
 A pure-Python (+ numpy) **byte-graph that is a 1-bit (ternary) LLM**.
@@ -38,7 +38,7 @@ Right: a trained query projection's weight bytes, each ∈ {−1, 0, +1}.
 
 ```sh
 pip install ultragraph-1bit    # then: import ultragraph
-# or from source (Python >=3.11):
+# or from source (Python >=3.13, free-threading ready):
 uv sync
 ```
 
@@ -231,7 +231,7 @@ ultragraph/io.py        byte-exact save / load (optional packed weights); save_p
 ultragraph/wiki.py      optional MediaWiki client + build_wiki_graph (live hu.wikipedia -> ultra-graph)
 mcp_server/server.py    optional MCP server (SSE) exposing the library as tools
 examples/               char/gpt/mesh/anonymus/hungarian LMs, history graphs, corpus fetch + enrich
-.devcontainer/          VS Code dev container (Python 3.12 + uv + ruff)
+.devcontainer/          VS Code dev container (Python 3.14 + uv + ruff)
 ```
 
 Design spec: `docs/superpowers/specs/2026-07-10-ultragraph-design.md`.

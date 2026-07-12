@@ -33,7 +33,7 @@ from .vaked import compile_vaked, lower_graph
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.16.0"
+    __version__ = "0.17.0"
 
 __all__ = [
     "Tensor",

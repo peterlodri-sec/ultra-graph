@@ -5,7 +5,7 @@ the loop is short.
 
 ## Setup
 
-Uses [uv](https://github.com/astral-sh/uv) and Python ≥ 3.11.
+Uses [uv](https://github.com/astral-sh/uv) and Python >= 3.13 (bleeding-edge: free-threading / no-GIL support, JIT).
 
 ```sh
 uv sync --extra viz     # core + dev (pytest, ruff) + matplotlib for viz tests
@@ -21,7 +21,7 @@ just demo        # end-to-end ternary mini-GPT
 just viz         # render example graphs
 ```
 
-CI (`.github/workflows/ci.yml`) runs `ruff check` + `pytest` on Python 3.11–3.13.
+CI (`.github/workflows/ci.yml`) runs `ruff check` + `pytest` on Python 3.13–3.14 (incl. free-threading `3.14t`).
 Both must be green before merge.
 
 ## Conventions
