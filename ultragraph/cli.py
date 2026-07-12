@@ -7,6 +7,8 @@ Usage::
     ug report <checkpoint>      Generate an HTML report from a trained model
     ug practice [--steps N]     Short training session with progress report
     ug breed <a> <b> --ratio R  Average two deployed checkpoints
+    ug compile <model> <target>  Compile to .ugm or other targets
+    ug run <file.ugm>            Execute a .ugm module
 """
 
 from __future__ import annotations
@@ -326,6 +328,58 @@ def cmd_breed(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# compile  — compile a model to .ugm or other target
+# ---------------------------------------------------------------------------
+def cmd_compile(args: argparse.Namespace) -> None:
+    from .model import GPT
+    from .ugm import from_ultragraph, save_ugm
+
+    model_path = Path(args.model)
+    target = args.target
+    data = np.load(model_path, allow_pickle=False)
+
+    if "__meta__" in data.files:
+        model = GPT.load_deployed(str(model_path))
+    else:
+        print("⚠ Training checkpoint detected; need deployed .npz", file=sys.stderr)
+        raise SystemExit(1)
+
+    if target == "ugm" or target.endswith(".ugm"):
+        out = Path(target) if target.endswith(".ugm") else model_path.with_suffix(".ugm")
+        module = from_ultragraph(model)
+        save_ugm(out, module)
+        print(f"✓ Compiled {model_path.name} → {out} ({out.stat().st_size / 1024:.0f} KB)")
+    else:
+        print(f"✗ Unknown target: {target} (supported: ugm)", file=sys.stderr)
+        raise SystemExit(1)
+
+
+# ---------------------------------------------------------------------------
+# run  — execute a .ugm module
+# ---------------------------------------------------------------------------
+def cmd_run(args: argparse.Namespace) -> None:
+    from .ugm import load_ugm
+
+    path = Path(args.file)
+    if not path.exists():
+        print(f"✗ {path} not found", file=sys.stderr)
+        raise SystemExit(1)
+
+    module = load_ugm(str(path))
+    if args.info:
+        print(f"{path.name}: {len(module.trees)} trees, {len(module.ultra_edges)} ultra-edges")
+        for i, t in enumerate(module.trees):
+            print(f"  tree[{i}]: {t.name} ({'dense' if t.kind == 0 else 'sparse'}, "
+                  f"{t.in_dim}→{t.out_dim}, act={t.act})")
+        return
+
+    in_dim = module.trees[0].in_dim if module.trees else 1
+    x = np.random.randn(1, in_dim).astype(np.float32)
+    out = module.run(x)
+    print(f"✓ {path.name} forward: [{out.shape[1]}] output (sum={float(out.sum()):.2f})")
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 def main(argv: list[str] | None = None) -> None:
@@ -354,6 +408,14 @@ def main(argv: list[str] | None = None) -> None:
     p_breed.add_argument("--ratio", type=float, default=0.5, help="Blend ratio (0 = pure A, 1 = pure B)")
     p_breed.add_argument("--output", "-o", help="Output path")
 
+    p_compile = sub.add_parser("compile", help="Compile model to .ugm")
+    p_compile.add_argument("model", help="Deployed .npz checkpoint")
+    p_compile.add_argument("target", nargs="?", default="ugm", help="Target format (ugm)")
+
+    p_run = sub.add_parser("run", help="Execute a .ugm module")
+    p_run.add_argument("file", help="Path to .ugm file")
+    p_run.add_argument("--info", action="store_true", help="Print module info only")
+
     args = parser.parse_args(argv)
     if args.command == "pull":
         cmd_pull(args)
@@ -365,6 +427,10 @@ def main(argv: list[str] | None = None) -> None:
         cmd_practice(args)
     elif args.command == "breed":
         cmd_breed(args)
+    elif args.command == "compile":
+        cmd_compile(args)
+    elif args.command == "run":
+        cmd_run(args)
 
 
 if __name__ == "__main__":
