@@ -523,6 +523,164 @@ def _record_history(module, x):
 
 
 # ---------------------------------------------------------------------------
+# publish  — push model to hub registry
+# ---------------------------------------------------------------------------
+_HUB_REGISTRY = os.environ.get("ULTRAGRAPH_HUB_API", "https://ultragraph.dev/api")
+
+
+def cmd_publish(args: argparse.Namespace) -> None:
+    import hashlib
+    import urllib.request
+
+    path = Path(args.file)
+    if not path.exists():
+        print(f"✗ {path} not found", file=sys.stderr)
+        raise SystemExit(1)
+
+    name = args.name or path.stem
+    size = path.stat().st_size
+    data = path.read_bytes()
+    sha = hashlib.sha256(data).hexdigest()[:16]
+
+    entry = {
+        "name": name,
+        "lang": args.lang,
+        "author": args.author,
+        "size": size,
+        "sha": sha,
+        "notes": args.notes,
+        "url": f"{_HUB_BASE}/{name}.npz",
+    }
+
+    print(f"↓ Publishing {name} ({size / 1024:.0f} KB, sha={sha})")
+    print(f"  lang={args.lang} author={args.author}")
+
+    registry_url = f"{_HUB_REGISTRY}/publish"
+    req = urllib.request.Request(
+        registry_url,
+        data=json.dumps(entry).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            print(f"✓ Published: {resp.read().decode()}")
+    except Exception as e:
+        print(f"⚠ Registry upload skipped ({e})")
+        print(f"  Model ready at: {path}")
+        print(f"  Share manually: upload {path} to your CDN")
+
+
+# ---------------------------------------------------------------------------
+# search  — browse hub registry
+# ---------------------------------------------------------------------------
+def cmd_search(args: argparse.Namespace) -> None:
+    import urllib.request
+
+    query = args.query or ""
+    url = f"{_HUB_REGISTRY}/models?q={query}" if query else f"{_HUB_REGISTRY}/models"
+
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            models = json.loads(resp.read().decode())
+    except Exception:
+        print("⚠ Hub registry not reachable. Showing local models instead:")
+        _search_local()
+        return
+
+    if not models:
+        print("No models found.")
+        return
+
+    print(f"Found {len(models)} models:\n")
+    print(f"{'Name':<20} {'Lang':<10} {'Author':<15} {'Size':<10} {'SHA':<18}")
+    print("-" * 75)
+    for m in models:
+        print(f"{m['name']:<20} {m.get('lang','?'):<10} {m.get('author','?'):<15} "
+              f"{m.get('size', 0) // 1024:>6} KB  {m.get('sha','?'):<18}")
+
+
+def _search_local() -> None:
+    """List .npz models in examples/data/ and current dir."""
+    dirs = [Path("examples/data"), Path(".")]
+    found = []
+    for d in dirs:
+        if d.is_dir():
+            for f in d.glob("*.npz"):
+                found.append(("local", f.name, f.stat().st_size))
+    if not found:
+        print("  No local .npz models found.")
+        return
+    print(f"{'Source':<10} {'Name':<30} {'Size':<10}")
+    print("-" * 52)
+    for src, name, size in sorted(found, key=lambda x: x[1]):
+        print(f"{src:<10} {name:<30} {size // 1024:>6} KB")
+
+
+# ---------------------------------------------------------------------------
+# spar  — compare two models
+# ---------------------------------------------------------------------------
+def cmd_spar(args: argparse.Namespace) -> None:
+    from .model import GPT
+    from .tokenize import ByteTokenizer
+
+    tok = ByteTokenizer()
+    results = []
+    for label, model_path in [("A", args.model_a), ("B", args.model_b)]:
+        path = Path(model_path)
+        if not path.exists():
+            print(f"✗ {path} not found", file=sys.stderr)
+            raise SystemExit(1)
+        data = np.load(path, allow_pickle=False)
+        if "__meta__" not in data.files:
+            print(f"✗ {path} is not a deployed checkpoint", file=sys.stderr)
+            raise SystemExit(1)
+        model = GPT.load_deployed(str(path))
+        ids = tok.encode(args.prompt)
+        out = model.generate(ids, n_new=args.n, temperature=0.8, top_k=40)
+        text = tok.decode(out)
+        results.append((label, path.stem, text, len(out)))
+
+    print("╔══ Sparring match")
+    print(f"║ Prompt: {args.prompt!r} ({args.n} tokens)")
+    print(f"╠══ Model A: {results[0][1]}")
+    print(f"║  {results[0][2][:120]}")
+    print(f"╠══ Model B: {results[1][1]}")
+    print(f"║  {results[1][2][:120]}")
+    print("╚══ Compare side-by-side above")
+
+
+# ---------------------------------------------------------------------------
+# taste  — sample at different temperatures
+# ---------------------------------------------------------------------------
+def cmd_taste(args: argparse.Namespace) -> None:
+    from .model import GPT
+    from .tokenize import ByteTokenizer
+
+    path = Path(args.model)
+    if not path.exists():
+        print(f"✗ {path} not found", file=sys.stderr)
+        raise SystemExit(1)
+    data = np.load(path, allow_pickle=False)
+    if "__meta__" not in data.files:
+        print(f"✗ {path} is not a deployed checkpoint", file=sys.stderr)
+        raise SystemExit(1)
+
+    model = GPT.load_deployed(str(path))
+    tok = ByteTokenizer()
+    ids = tok.encode(args.prompt)
+
+    temps = [0.0, 0.3, 0.6, 0.8, 1.2]
+    print(f"╔══ Tasting flight: {args.prompt!r}")
+    for t in temps:
+        out = model.generate(ids, n_new=args.n, temperature=t, top_k=40, top_p=0.9, seed=42)
+        text = tok.decode(out)
+        label = "greedy" if t == 0 else f"temp={t}"
+        print(f"╠══ {label:<10} {text[:100]}")
+    print("╚══ Pick your favorite temperature")
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 def main(argv: list[str] | None = None) -> None:
@@ -554,6 +712,28 @@ def main(argv: list[str] | None = None) -> None:
     p_compile = sub.add_parser("compile", help="Compile model to .ugm")
     p_compile.add_argument("model", help="Deployed .npz checkpoint")
     p_compile.add_argument("target", nargs="?", default="ugm", help="Target format (ugm, wasm, rp2040)")
+
+    p_publish = sub.add_parser("publish", help="Publish a deployed model to the hub")
+    p_publish.add_argument("file", help="Path to .npz or .ugm model")
+    p_publish.add_argument("--name", help="Model name (defaults to filename)")
+    p_publish.add_argument("--lang", default="unknown", help="Model language")
+    p_publish.add_argument("--author", default="anonymous", help="Author name")
+    p_publish.add_argument("--notes", default="", help="Free-form notes")
+
+    p_search = sub.add_parser("search", help="Search models in the hub registry")
+    p_search.add_argument("query", nargs="?", default="", help="Search query (language, name, author)")
+    p_search.add_argument("--list", action="store_true", help="List all available models")
+
+    p_spar = sub.add_parser("spar", help="Compare two models on the same prompt")
+    p_spar.add_argument("model_a", help="First model (.npz)")
+    p_spar.add_argument("model_b", help="Second model (.npz)")
+    p_spar.add_argument("--prompt", default="Hello world", help="Prompt text")
+    p_spar.add_argument("--n", type=int, default=32, help="Tokens to generate")
+
+    p_taste = sub.add_parser("temperature", help="Sample at different temperatures")
+    p_taste.add_argument("model", help="Deployed model (.npz)")
+    p_taste.add_argument("--prompt", default="The", help="Prompt text")
+    p_taste.add_argument("--n", type=int, default=48, help="Tokens per sample")
 
     p_run = sub.add_parser("run", help="Execute a .ugm module")
     p_run.add_argument("file", help="Path to .ugm file")
@@ -601,6 +781,14 @@ def main(argv: list[str] | None = None) -> None:
             cmd_run(args)
     elif args.command == "history":
         cmd_history(args)
+    elif args.command == "publish":
+        cmd_publish(args)
+    elif args.command == "search":
+        cmd_search(args)
+    elif args.command == "spar":
+        cmd_spar(args)
+    elif args.command == "temperature":
+        cmd_taste(args)
 
 
 if __name__ == "__main__":
