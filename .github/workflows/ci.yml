@@ -27,7 +27,7 @@ jobs:
         run: uv run pytest
 
   free-threading:
-    runs-on:ubuntu-latest
+    runs-on: ubuntu-latest
     name: free-threading (3.14t)
     steps:
       - uses: actions/checkout@v4
