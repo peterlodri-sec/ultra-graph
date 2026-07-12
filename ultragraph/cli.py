@@ -7,7 +7,8 @@ Usage::
     ug report <checkpoint>      Generate an HTML report from a trained model
     ug practice [--steps N]     Short training session with progress report
     ug breed <a> <b> --ratio R  Average two deployed checkpoints
-    ug compile <model> <target>  Compile to .ugm or other targets
+    ug compile <model> <target>  Compile to .ugm / .wasm
+    ug link <a.ugm> <b.ugm>      Link two .ugm modules [--mode sequential|sum]
     ug run <file.ugm>            Execute a .ugm module
 """
 
@@ -349,9 +350,39 @@ def cmd_compile(args: argparse.Namespace) -> None:
         module = from_ultragraph(model)
         save_ugm(out, module)
         print(f"✓ Compiled {model_path.name} → {out} ({out.stat().st_size / 1024:.0f} KB)")
+    elif target == "wasm" or target.endswith(".wasm"):
+        from .wasm import save_wasm as _save_wasm
+
+        out = Path(target) if target.endswith((".wasm", ".wat")) else model_path.with_suffix(".wasm")
+        module = from_ultragraph(model)
+        _save_wasm(module, out)
     else:
-        print(f"✗ Unknown target: {target} (supported: ugm)", file=sys.stderr)
+        print(f"✗ Unknown target: {target} (supported: ugm, wasm)", file=sys.stderr)
         raise SystemExit(1)
+
+
+# ---------------------------------------------------------------------------
+# link  — link two .ugm modules
+# ---------------------------------------------------------------------------
+def cmd_link(args: argparse.Namespace) -> None:
+    from .linker import link_parallel, link_sequential
+    from .ugm import load_ugm, save_ugm
+
+    a = load_ugm(args.model_a)
+    b = load_ugm(args.model_b)
+
+    if args.mode == "sequential":
+        result = link_sequential([a, b])
+    elif args.mode in ("sum", "avg", "max"):
+        result = link_parallel([a, b], mode=args.mode)
+    else:
+        print(f"✗ Unknown link mode: {args.mode} (use sequential, sum, avg, max)", file=sys.stderr)
+        raise SystemExit(1)
+
+    out = Path(args.output) if args.output else Path(f"{Path(args.model_a).stem}_linked.ugm")
+    save_ugm(out, result)
+    print(f"✓ Linked {Path(args.model_a).name} + {Path(args.model_b).name} ({args.mode}) → {out} "
+          f"({out.stat().st_size / 1024:.0f} KB, {len(result.trees)} trees)")
 
 
 # ---------------------------------------------------------------------------
@@ -377,6 +408,44 @@ def cmd_run(args: argparse.Namespace) -> None:
     x = np.random.randn(1, in_dim).astype(np.float32)
     out = module.run(x)
     print(f"✓ {path.name} forward: [{out.shape[1]}] output (sum={float(out.sum()):.2f})")
+
+
+def _cmd_run_jit(args: argparse.Namespace) -> None:
+    """Profile a .ugm module and emit WebGPU compute shader source."""
+    from .ugm import load_ugm
+
+    path = Path(args.file)
+    if not path.exists():
+        print(f"✗ {path} not found", file=sys.stderr)
+        raise SystemExit(1)
+
+    module = load_ugm(str(path))
+    print(f"╔══ JIT analysis: {path.name}")
+    print(f"║   Trees: {len(module.trees)}")
+    print(f"║   Ultra-edges: {len(module.ultra_edges)}")
+    total_weights = sum(t.out_dim * t.in_dim for t in module.trees if t.kind == 0 and t.wq is not None)
+    print(f"║   Ternary weights: {total_weights:,}")
+    print(f"║   Weight memory: {total_weights / 1024:.1f} KB")
+
+    # CPU BLAS benchmark
+    import time
+
+    in_dim = module.trees[0].in_dim if module.trees else 1
+    x = np.random.randn(1, in_dim).astype(np.float32)
+    t0 = time.perf_counter()
+    for _ in range(100):
+        module.run(x)
+    elapsed = time.perf_counter() - t0
+    print(f"║   100 passes (numpy BLAS): {elapsed:.3f}s ({elapsed / 100 * 1000:.1f} ms/pass)")
+
+    # Emit WebGPU shader
+    print(f"╠══ WebGPU compute shader ({len(module.trees)} kernel dispatches):")
+    for i, tree in enumerate(module.trees):
+        if tree.kind == 0:
+            act_name = ["none", "relu", "identity", "sigmoid", "tanh"][tree.act] if tree.act < 5 else "unknown"
+            print(f"║   dispatch({i}): {tree.name} matmul<{tree.in_dim}x{tree.out_dim}> + {act_name}")
+    print("╚══ Generate: ug compile model.ugm --target wasm")
+
 
 
 # ---------------------------------------------------------------------------
@@ -410,11 +479,18 @@ def main(argv: list[str] | None = None) -> None:
 
     p_compile = sub.add_parser("compile", help="Compile model to .ugm")
     p_compile.add_argument("model", help="Deployed .npz checkpoint")
-    p_compile.add_argument("target", nargs="?", default="ugm", help="Target format (ugm)")
+    p_compile.add_argument("target", nargs="?", default="ugm", help="Target format (ugm, wasm)")
 
     p_run = sub.add_parser("run", help="Execute a .ugm module")
     p_run.add_argument("file", help="Path to .ugm file")
     p_run.add_argument("--info", action="store_true", help="Print module info only")
+    p_run.add_argument("--jit", action="store_true", help="Profile and suggest JIT optimizations")
+
+    p_link = sub.add_parser("link", help="Link two .ugm modules")
+    p_link.add_argument("model_a", help="First .ugm module")
+    p_link.add_argument("model_b", help="Second .ugm module")
+    p_link.add_argument("--mode", default="sequential", help="Link mode: sequential, sum, avg, max")
+    p_link.add_argument("--output", "-o", help="Output .ugm path")
 
     args = parser.parse_args(argv)
     if args.command == "pull":
@@ -429,8 +505,13 @@ def main(argv: list[str] | None = None) -> None:
         cmd_breed(args)
     elif args.command == "compile":
         cmd_compile(args)
+    elif args.command == "link":
+        cmd_link(args)
     elif args.command == "run":
-        cmd_run(args)
+        if args.jit:
+            _cmd_run_jit(args)
+        else:
+            cmd_run(args)
 
 
 if __name__ == "__main__":
