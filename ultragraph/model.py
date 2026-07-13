@@ -50,7 +50,8 @@ class TransformerBlock:
 class GPT:
     """A ternary GPT: token embedding + RoPE + N pre-norm blocks + ternary head."""
 
-    def __init__(self, vocab, d_model, n_layers, n_heads, max_len=512, mlp_ratio=4, name="gpt"):
+    def __init__(self, vocab, d_model, n_layers, n_heads, max_len=512, mlp_ratio=4, name="gpt",
+                 threaded=False):
         assert (d_model // n_heads) % 2 == 0, "d_head (d_model // n_heads) must be even for RoPE"
         self.vocab = int(vocab)
         self.d_model = int(d_model)
@@ -59,6 +60,7 @@ class GPT:
         self.max_len = int(max_len)
         self.mlp_ratio = int(mlp_ratio)
         self.name = name
+        self.threaded = bool(threaded)
         self.embed = Embedding(vocab, d_model, name=f"{name}.embed")
         self.rope = RoPE(d_model // n_heads, max_len=max_len, name=f"{name}.rope")
         self.blocks = [
@@ -69,11 +71,39 @@ class GPT:
         self.head = Tree.dense(d_model, vocab, f"{name}.head", act="none")
 
     def __call__(self, ids):
-        """ids: int array ``[T]`` or ``[B, T]`` -> logits ``[..., T, vocab]``."""
-        x = self.embed(np.asarray(ids))
+        """ids: int array ``[T]`` or ``[B, T]`` -> logits ``[..., T, vocab]``.
+
+        When ``self.threaded=True`` and input is batched (B > 1), forward
+        passes run in parallel across threads for free-threading Python builds.
+        """
+        ids_arr = np.asarray(ids)
+        if self.threaded and ids_arr.ndim == 2 and ids_arr.shape[0] > 1:
+            return self._forward_threaded(ids_arr)
+        return self._forward_sequential(ids_arr)
+
+    def _forward_sequential(self, ids):
+        x = self.embed(ids)
         for b in self.blocks:
             x = b(x)
         return self.head.forward(self.norm(x))
+
+    def _forward_threaded(self, ids):
+        """Run batched forward pass with one thread per sequence (inference only)."""
+        import concurrent.futures
+
+        bsz = ids.shape[0]
+
+        def _run_one(row_idx):
+            x = self.embed(ids[row_idx:row_idx + 1])
+            for blk in self.blocks:
+                x = blk(x)
+            return self.head.forward(self.norm(x))
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(bsz, 8)) as ex:
+            results = list(ex.map(_run_one, range(bsz)))
+
+        from .autograd import cat as cat_tensors
+        return cat_tensors(results, 0)
 
     def parameters(self):
         ps = list(self.embed.parameters())

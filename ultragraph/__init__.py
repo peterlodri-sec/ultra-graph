@@ -9,6 +9,7 @@ from importlib.metadata import version as _pkg_version
 import numpy as np
 
 from .autograd import Tensor, cat, ternary_linear
+from .compile import compile
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
 from .io import load, load_params, save, save_params
 from .model import GPT, Mesh, TransformerBlock
@@ -64,6 +65,7 @@ def seed(s: int = 42):
 __all__ = [
     "tensor",
     "seed",
+    "compile",
     "Tensor",
     "ternary_linear",
     "cat",
