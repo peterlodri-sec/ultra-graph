@@ -14,7 +14,7 @@ jobs:
       matrix:
         python-version: ["3.13", "3.14"]  # bleeding-edge: free-threading + JIT
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     name: free-threading (3.14t)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
