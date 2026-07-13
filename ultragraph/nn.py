@@ -13,6 +13,58 @@ def linear_tree(in_dim: int, out_dim: int, name: str = "linear", act: str = "rel
     return Tree.dense(in_dim, out_dim, name=name, act=act)
 
 
+class Linear:
+    """A dense ternary linear layer. Wraps ``Tree.dense`` with a clean API.
+
+    Example:
+        layer = nn.Linear(128, 256)
+        y = layer(x)  # forward with STE, activation quantized to int8
+    """
+
+    def __init__(self, in_dim: int, out_dim: int, act: str = "relu", name: str = "linear"):
+        self.tree = Tree.dense(in_dim, out_dim, name=name, act=act)
+
+    def __call__(self, x):
+        return self.tree.forward(x)
+
+    @property
+    def w_master(self):
+        return self.tree.adhoc["w_master"]
+
+    @property
+    def bias(self):
+        return self.tree.adhoc["bias"]
+
+    def parameters(self):
+        return self.tree.parameters()
+
+    def requantize(self):
+        self.tree.requantize()
+
+
+class Residual:
+    """Skip-connection wrapper: ``y = layer(x) + x``. Drops in anywhere.
+
+    Example:
+        block = Sequential(Linear(64, 64), Residual(Linear(64, 64)))
+    """
+
+    def __init__(self, module):
+        self.module = module
+
+    def __call__(self, x):
+        return self.module(x) + x
+
+    def parameters(self):
+        if hasattr(self.module, "parameters"):
+            return self.module.parameters()
+        return []
+
+    def requantize(self):
+        if callable(getattr(self.module, "requantize", None)):
+            self.module.requantize()
+
+
 def mlp(dims: list[int], name: str = "mlp") -> UltraGraph:
     """Stack dense ternary linear trees, wired plain, relu between; last layer linear.
 

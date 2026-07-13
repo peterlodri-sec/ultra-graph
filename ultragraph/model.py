@@ -273,6 +273,76 @@ class GPT:
             p = masked / masked.sum()
         return int(rng.choice(len(p), p=p))
 
+    # -- one-line training ----------------------------------------------------
+    def fit(self, x, y, epochs=1, lr=0.1, batch_size=None, seed=0, quiet=False):
+        """Train the model on ``x`` → ``y`` pair with SGD.
+
+        ``x`` and ``y`` are int token-id arrays (``[seq]`` or ``[batch, seq]``).
+        Returns a list of per-epoch losses.
+
+        Example:
+            loss = model.fit(x_ids, y_ids, epochs=10, lr=0.01)
+        """
+        from .optim import SGD
+
+        np.random.seed(seed)
+        x_arr = np.asarray(x, dtype=np.int64)
+        y_arr = np.asarray(y, dtype=np.int64)
+        if x_arr.ndim == 1:
+            x_arr = x_arr[None, :]
+            y_arr = y_arr[None, :]
+
+        opt = SGD(self, lr=lr, accum_steps=1)
+        losses = []
+
+        for epoch in range(epochs):
+            opt.zero_grad()
+            logits = self(x_arr)
+            loss = logits.cross_entropy(y_arr)
+            loss.backward()
+            opt.step()
+            losses.append(float(loss.data))
+            if not quiet:
+                print(f"epoch {epoch + 1}/{epochs}  loss={loss.data:.4f}")
+
+        return losses
+
+    # -- unified save ---------------------------------------------------------
+    def save_model(self, path, deployed=False):
+        """Save the model.
+
+        - ``deployed=False`` (default): save fp32 masters for training resume.
+        - ``deployed=True``: save bit-packed ternary bytes for inference-only.
+
+        Use ``GPT.load_model(path)`` to restore.
+
+        Example:
+            model.save_model("model.ugm")              # training checkpoint
+            model.save_model("model.ugm", deployed=True)  # inference-only
+        """
+        if deployed:
+            self.save_deployed(path)
+        else:
+            self.save(path)
+
+    @classmethod
+    def load_model(cls, path):
+        """Load a model saved by ``save_model()``. Auto-detects format.
+
+        Example:
+            model = GPT.load_model("model.ugm")
+        """
+        import json
+
+        data = np.load(path, allow_pickle=False)
+        if "__meta__" in data:
+            meta = json.loads(str(data["__meta__"]))
+            if "hp" in meta:
+                return cls.load_deployed(path)
+        instance = cls(256, 128, 2, 2)
+        instance.load(path)
+        return instance
+
 
 class Mesh:
     """A graph of minds — a learned soft (or top-k) mixture of *full* models.
