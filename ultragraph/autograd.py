@@ -5,6 +5,12 @@ numpy broadcasting so batched / multi-head layers work; 2-D usage is a special
 case with identical behavior. The special op ``ternary_linear`` folds
 BitNet-style quantization into the forward pass while using a straight-through
 estimator (STE) on the backward pass.
+
+Thread safety: Each Tensor owns its ``.grad`` and ``_backward`` closure.
+There is no global tape or shared registry. Independent computation graphs
+(no shared tensors) are safe to run concurrently. If two threads share a
+Tensor in their graphs and both call ``backward()``, ``.grad`` accumulation
+is a data race. The typical single-threaded training loop is unaffected.
 """
 
 import math

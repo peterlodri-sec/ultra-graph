@@ -98,6 +98,15 @@ class Tree:
         self.act = "none"
         self.wq: np.ndarray | None = None
         self.w_scale: float = 1.0
+        self._wq_stale: bool = False
+
+    def _invalidate_wq(self) -> None:
+        """Mark the cached ternary weight matrix as stale.
+
+        Called by optimizers before updating fp32 masters. The next
+        ``requantize()`` call clears this flag.
+        """
+        self._wq_stale = True
 
     # -- constructors ---------------------------------------------------------
     @classmethod
@@ -148,6 +157,7 @@ class Tree:
         wq, scale = quantize_weight_ternary(self.adhoc["w_master"].data)
         self.wq = wq
         self.w_scale = scale
+        self._wq_stale = False
 
     def forward(self, x: Tensor) -> Tensor:
         if self.kind != "dense":

@@ -261,3 +261,31 @@ def test_activation_grads():
         x = Tensor(X.copy(), requires_grad=True)
         getattr(x, name)().sum().backward()
         assert np.allclose(x.grad, _numeric_grad(fwd_np, [X.copy()], 0), atol=1e-2), name
+
+
+# -- free-threading safety ----------------------------------------------------
+
+
+def test_independent_graphs_thread_safety():
+    """Two independent computation graphs must not interfere when run in parallel."""
+    import threading
+
+    errors = []
+
+    def run_graph(seed: int):
+        try:
+            rng = np.random.RandomState(seed)
+            a = Tensor(rng.randn(32, 64).astype(np.float32), requires_grad=True)
+            b = Tensor(rng.randn(64, 16).astype(np.float32), requires_grad=True)
+            out = (a @ b).relu().sum()
+            out.backward()
+        except Exception as e:
+            errors.append(str(e))
+
+    threads = [threading.Thread(target=run_graph, args=(i,)) for i in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"thread errors: {errors}"

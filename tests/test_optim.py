@@ -47,3 +47,43 @@ def test_accum_defers_update_until_window_closes():
     m(x[:, :-1]).cross_entropy(x[:, 1:]).backward()
     opt.step()  # third -> applies
     assert not np.allclose(m.head.adhoc["w_master"].data, before)
+
+
+# -- weight sync invalidation ------------------------------------------------
+
+
+def test_weight_sync_after_optimizer_step():
+    """Optimizer step must requantize, clearing the stale flag."""
+    from ultragraph.autograd import Tensor
+    from ultragraph.nn import mlp
+
+    model = mlp([8, 16, 4])
+    opt = SGD(model, lr=0.01)
+
+    for t in model.trees:
+        if t.kind == "dense":
+            assert not t._wq_stale
+
+    rng = np.random.RandomState(0)
+    x = rng.randn(2, 8).astype(np.float32)
+    loss = model.forward(Tensor(x)).sum()
+    loss.backward()
+    opt.step()
+
+    for t in model.trees:
+        if t.kind == "dense":
+            assert not t._wq_stale, f"{t.name}: wq still stale after optimizer step"
+
+
+def test_weight_sync_matches_master():
+    """After requantize, wq must reflect w_master."""
+    from ultragraph.core import Tree
+    from ultragraph.quant import dequant
+
+    t = Tree.dense(4, 8, name="sync-test")
+    t.requantize()
+    assert not t._wq_stale
+
+    approx = dequant(t.wq, t.w_scale)
+    assert approx.shape == t.adhoc["w_master"].data.shape
+    assert approx.dtype == np.float32
