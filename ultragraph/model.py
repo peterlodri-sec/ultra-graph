@@ -362,15 +362,37 @@ class GPT:
         opt = SGD(self, lr=lr, accum_steps=1)
         losses = []
 
-        for epoch in range(epochs):
-            opt.zero_grad()
-            logits = self(x_arr)
-            loss = logits.cross_entropy(y_arr)
-            loss.backward()
-            opt.step()
-            losses.append(float(loss.data))
-            if not quiet:
-                print(f"epoch {epoch + 1}/{epochs}  loss={loss.data:.4f}")
+        use_rich = False
+        if not quiet:
+            try:
+                from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+                use_rich = True
+            except ImportError:
+                use_rich = False
+
+        if use_rich and not quiet:
+            with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                          BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                          TextColumn("loss={task.fields[loss]:.4f}")) as progress:
+                task = progress.add_task("training", total=epochs, loss=float("inf"))
+                for epoch in range(epochs):
+                    opt.zero_grad()
+                    logits = self(x_arr)
+                    loss = logits.cross_entropy(y_arr)
+                    loss.backward()
+                    opt.step()
+                    losses.append(float(loss.data))
+                    progress.update(task, advance=1, loss=float(loss.data))
+        else:
+            for epoch in range(epochs):
+                opt.zero_grad()
+                logits = self(x_arr)
+                loss = logits.cross_entropy(y_arr)
+                loss.backward()
+                opt.step()
+                losses.append(float(loss.data))
+                if not quiet:
+                    print(f"epoch {epoch + 1}/{epochs}  loss={loss.data:.4f}")
 
         return losses
 
