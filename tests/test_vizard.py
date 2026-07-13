@@ -274,3 +274,38 @@ def test_export_mp4_skipped_without_imageio():
         pytest.skip("imageio not installed")
     from ultragraph.vizard.export import export_mp4
     assert callable(export_mp4)
+
+
+# -- WebGL 3D viewer ----------------------------------------------------------
+
+
+def test_render_webgl_returns_html():
+    t = Tree(9, name="gl-test")
+    scene = scene_from_tree(t)
+    from ultragraph.vizard.renderer.webgl import render_webgl
+    html = render_webgl(scene, title="3D Test")
+    assert isinstance(html, str)
+    assert "<!DOCTYPE html>" in html
+    assert "webgl" in html.lower()
+
+
+# -- dashboard ----------------------------------------------------------------
+
+
+def test_dashboard_create():
+    from ultragraph.vizard.dashboard import Dashboard
+    dash = Dashboard(port=18765)
+    assert dash.port == 18765
+    assert dash._server is None
+
+
+def test_dashboard_push_no_clients():
+    from ultragraph.vizard.dashboard import Dashboard
+    dash = Dashboard(port=18766)
+    dash.push("loss", 0.5)
+
+
+def test_dashboard_context_manager():
+    from ultragraph.vizard.dashboard import Dashboard
+    with Dashboard(port=18767) as dash:
+        dash.push("loss", 1.0)

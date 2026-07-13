@@ -1,18 +1,21 @@
 """ug-vizard — pure visualization sub-module for ultra-graph.
 
 Zero-dependency interactive visualisation: scene graph, HTML5 Canvas renderer,
-widgets, shader system, animation engine, and frame export. Everything is
-self-contained — no matplotlib, no JavaScript frameworks, no npm. Output is
-pure HTML/CSS/JS strings that work offline in any browser.
+WebGL 3D viewer, widgets, shader system, animation engine, frame export, and
+live training dashboard. Everything is self-contained — no matplotlib, no
+JavaScript frameworks, no npm. Output is pure HTML/CSS/JS strings that work
+offline in any browser.
 
 Public API
 ----------
 * ``render_html(scene)``          — interactive HTML5 Canvas scene
+* ``render_webgl(scene)``          — WebGL 3D interactive viewer
 * ``tree_widget(tree)``            — self-contained interactive tree viewer
 * ``heatmap_widget(arr)``          — interactive byte heatmap
 * ``animate_forward_pass(ug)``     — orbit flythrough as HTML animation
 * ``export_gif(animation, path)``  — render animation as animated GIF
 * ``export_mp4(animation, path)``  — render animation as MP4 video
+* ``Dashboard(port)``              — live training dashboard
 * ``heatmap_shader()`` / ``sign_shader()`` / ... — programmable visual shaders
 """
 
@@ -28,8 +31,10 @@ from .core.shader import (
     heatmap_shader,
     sign_shader,
 )
+from .dashboard import Dashboard
 from .export import export_frame, export_gif, export_mp4
 from .renderer.html5 import render_html, render_to_file
+from .renderer.webgl import render_webgl, render_webgl_to_file
 from .widgets.heatmap import heatmap_to_file, heatmap_widget
 from .widgets.tree import tree_to_file, tree_widget
 
@@ -46,6 +51,8 @@ __all__ = [
     "apply_shaders",
     "render_html",
     "render_to_file",
+    "render_webgl",
+    "render_webgl_to_file",
     "tree_widget",
     "tree_to_file",
     "heatmap_widget",
@@ -54,4 +61,5 @@ __all__ = [
     "export_gif",
     "export_mp4",
     "export_frame",
+    "Dashboard",
 ]
