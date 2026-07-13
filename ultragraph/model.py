@@ -273,6 +273,43 @@ class GPT:
             p = masked / masked.sum()
         return int(rng.choice(len(p), p=p))
 
+    def summary(self):
+        """Print a formatted table of model layers with param counts and byte sizes.
+
+        Example:
+            model.summary()
+            # Layer           Kind          Shape        Params    Bytes (ternary)
+            # embed           Embedding     256x128      32768     0
+            # b0.attn.q       dense         32x128       4096      5
+            # ...
+        """
+        rows = []
+        rows.append(("embed", "Embedding", f"{self.vocab}x{self.d_model}", self.vocab * self.d_model, 0))
+        for i, b in enumerate(self.blocks):
+            for name in ("attn.q", "attn.k", "attn.v", "attn.o"):
+                t = getattr(b.attn, f"w{name[-1]}")
+                w = t.adhoc["w_master"]
+                rows.append((f"b{i}.{name}", "dense", f"{t.out_dim}x{t.in_dim}",
+                             w.data.size, int(w.data.size * 1.6 / 8)))
+            for j, ff in enumerate((b.ff1, b.ff2)):
+                w = ff.adhoc["w_master"]
+                rows.append((f"b{i}.ff{j + 1}", "dense", f"{ff.out_dim}x{ff.in_dim}",
+                             w.data.size, int(w.data.size * 1.6 / 8)))
+        rows.append(("head", "dense", f"vocab x {self.d_model}",
+                     self.head.adhoc["w_master"].data.size,
+                     int(self.head.adhoc["w_master"].data.size * 1.6 / 8)))
+
+        header = f"{'Layer':<16} {'Kind':<12} {'Shape':<16} {'Params':>10} {'Bytes':>10}"
+        sep = "-" * len(header)
+        lines = [header, sep]
+        for name, kind, shape, params, byte_size in rows:
+            lines.append(f"{name:<16} {kind:<12} {shape:<16} {params:>10} {byte_size:>10}")
+        lines.append(sep)
+        total_params = sum(r[3] for r in rows)
+        total_bytes = sum(r[4] for r in rows)
+        lines.append(f"{'TOTAL':<16} {'':12} {'':16} {total_params:>10} {total_bytes:>10}")
+        print("\n".join(lines))
+
     # -- one-line training ----------------------------------------------------
     def fit(self, x, y, epochs=1, lr=0.1, batch_size=None, seed=0, quiet=False):
         """Train the model on ``x`` → ``y`` pair with SGD.

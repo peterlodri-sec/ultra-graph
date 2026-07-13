@@ -6,6 +6,8 @@ node/edge (1 byte each) -> tree (a whole net) -> ultra-edge wiring -> ultra-grap
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 
+import numpy as np
+
 from .autograd import Tensor, cat, ternary_linear
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
 from .io import load, load_params, save, save_params
@@ -36,7 +38,32 @@ try:
 except PackageNotFoundError:  # running from a source tree without install
     __version__ = "0.17.0"
 
+
+def tensor(data, requires_grad=False) -> Tensor:
+    """Create a Tensor from array-like data. Wraps numpy arrays invisibly.
+
+    ``ug.tensor([[1,2],[3,4]])`` works like ``np.array`` but returns a
+    Tensor that flows through autograd. No need to import ``Tensor`` separately.
+
+    Example:
+        x = ug.tensor(np.random.randn(4, 8))
+        y = model(x)
+    """
+    return Tensor(data, requires_grad=requires_grad)
+
+
+def seed(s: int = 42):
+    """Set the global random seed for reproducibility.
+
+    Example:
+        ug.seed(42)
+        model = ug.GPT(256, 128, 2, 2)
+    """
+    np.random.seed(s)
+
 __all__ = [
+    "tensor",
+    "seed",
     "Tensor",
     "ternary_linear",
     "cat",
