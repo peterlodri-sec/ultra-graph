@@ -162,12 +162,26 @@ class Tree:
     def forward(self, x: Tensor) -> Tensor:
         if self.kind != "dense":
             raise NotImplementedError("forward is defined for dense trees in the MVP")
-        if self.deployed:
-            y = ternary_forward(x, self.wq, self.w_scale, self.adhoc.get("bias"))
-        else:
-            y = ternary_linear(x, self.adhoc["w_master"], self.adhoc["bias"])
-        if self.act == "relu":
-            y = y.relu()
+        match self.deployed:
+            case True:
+                y = ternary_forward(x, self.wq, self.w_scale, self.adhoc.get("bias"))
+            case False:
+                y = ternary_linear(x, self.adhoc["w_master"], self.adhoc["bias"])
+        match self.act:
+            case "relu":
+                y = y.relu()
+            case "tanh":
+                y = y.tanh()
+            case "sigmoid":
+                y = y.sigmoid()
+            case "gelu":
+                y = y.gelu()
+            case "silu" | "swish":
+                y = y.silu()
+            case "none" | "":
+                pass
+            case _:
+                raise ValueError(f"Unsupported activation: {self.act}")
         # write node bytes from the int8 activation averaged over all leading (batch/
         # sequence) dims, for inspection/viz
         flat = y.data.reshape(-1, y.data.shape[-1]) if y.data.ndim >= 2 else y.data.reshape(1, -1)
@@ -298,8 +312,9 @@ class UltraGraph:
                     inp = x
                 out = tree.forward(inp)
                 for e in edges:
-                    if e.kind == "residual":
-                        out = out + outputs[id(e.src)]
+                    match e.kind:
+                        case "residual":
+                            out = out + outputs[id(e.src)]
                 outputs[id(tree)] = out
                 order.append(tree)
                 progressed = True

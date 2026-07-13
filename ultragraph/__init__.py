@@ -10,10 +10,13 @@ import numpy as np
 
 from .autograd import Tensor, cat, ternary_linear
 from .client import Client
+from .command import command
+from .command import run as run_cli
 from .compile import compile
 from .core import Edge, Embedding, NodeRef, Tree, UltraEdge, UltraGraph
 from .io import load, load_params, save, save_params
 from .model import GPT, Mesh, TransformerBlock
+from .model_config import model
 from .nn import (
     Attention,
     Dropout,
@@ -38,7 +41,7 @@ from .vaked import compile_vaked, lower_graph
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.17.0"
+    __version__ = "0.19.0"
 
 
 def tensor(data, requires_grad=False) -> Tensor:
@@ -67,6 +70,9 @@ __all__ = [
     "tensor",
     "seed",
     "compile",
+    "model",
+    "command",
+    "run_cli",
     "Client",
     "Tensor",
     "ternary_linear",

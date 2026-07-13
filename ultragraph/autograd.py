@@ -15,10 +15,15 @@ is a data race. The typical single-threaded training loop is unaffected.
 
 import math
 from typing import Callable, Iterable
+from typing import TypeVarTuple as Ts
 
 import numpy as np
 
 from .quant import EPS, quantize_weight_ternary
+
+# Shape-generic type variable for IDE/documentation hints.
+# ``Tensor[*Shape]`` is conceptual — not enforced at runtime.
+Shape = Ts("Shape")
 
 
 def _unbroadcast(grad: np.ndarray, shape: tuple[int, ...]) -> np.ndarray:
@@ -203,8 +208,9 @@ class Tensor:
         return out
 
     def reshape(self, *shape):
-        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
-            shape = tuple(shape[0])
+        match shape:
+            case (x,) if isinstance(x, (tuple, list)):
+                shape = tuple(x)
         out = self._child(self.data.reshape(shape), (self,), None)
 
         def _backward():

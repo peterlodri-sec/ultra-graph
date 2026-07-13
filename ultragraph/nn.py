@@ -391,10 +391,11 @@ class Sequential:
 
     def train(self, mode: bool = True):
         for m in self.modules:
-            if callable(getattr(m, "train", None)):
-                m.train(mode)  # recurse into nested Sequential
-            elif hasattr(m, "training"):
-                m.training = mode
+            match m:
+                case _ if callable(getattr(m, "train", None)):
+                    m.train(mode)  # recurse into nested Sequential
+                case _ if hasattr(m, "training"):
+                    m.training = mode
         return self
 
     def eval(self):

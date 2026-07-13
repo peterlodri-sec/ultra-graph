@@ -5,9 +5,15 @@ Exposes the deployed Anonymus GPT and the byte tokenizer as MCP tools. Run with:
     uv run --extra mcp python mcp_server/server.py
 
 The SSE endpoint defaults to http://127.0.0.1:8000/sse.
+
+The ``stream_tokens`` tool streams generated tokens one-by-one via SSE,
+so clients get real-time output without waiting for the full generation.
 """
 
+import asyncio
+
 from pathlib import Path
+from typing import AsyncGenerator
 
 from mcp.server.fastmcp import FastMCP
 
@@ -92,6 +98,40 @@ def tokenize_preview(text: str) -> dict:
     """
     ids = ByteTokenizer().encode(text)
     return {"n_bytes": int(ids.size), "ids_head": [int(i) for i in ids[:32]]}
+
+
+@mcp.tool()
+async def stream_tokens(
+    prompt: str,
+    n_new: int = 80,
+    temperature: float = 0.8,
+    top_p: float = 0.9,
+    seed: int = 0,
+) -> AsyncGenerator[str, None]:
+    """Stream-generate text token-by-token via SSE.
+
+    Each token is sent as a separate SSE event so clients receive output
+    in real time. The final event contains the complete generated text.
+
+    Args:
+        prompt: Seed text (Latin works best, e.g. "P. dictus magister ").
+        n_new: Number of new tokens (bytes) to generate.
+        temperature: Sampling temperature; <= 0 is greedy.
+        top_p: Nucleus (top-p) sampling threshold.
+        seed: RNG seed for reproducible sampling.
+
+    Yields:
+        SSE events: one per token, then a final ``[DONE]`` event with the
+        full decoded text.
+    """
+    tok = ByteTokenizer()
+    model = _load_model()
+    ids = tok.encode(prompt)
+
+    generator = model.generate(ids, n_new=n_new, temperature=temperature,
+                               top_p=top_p, seed=seed, stream=True)
+    for token_id in generator:
+        yield tok.decode([token_id])
 
 
 if __name__ == "__main__":
