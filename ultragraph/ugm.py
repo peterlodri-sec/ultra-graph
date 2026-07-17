@@ -313,6 +313,8 @@ def load_ugm(path: str | Path) -> UGMFile:
         if magic != _MAGIC:
             raise ValueError(f"Not a .ugm file: magic={magic.hex()}")
         version, flags, n_trees = struct.unpack("<HHI", fh.read(8))
+        if version != _VERSION:
+            raise ValueError(f"unsupported .ugm version {version}, expected {_VERSION}")
         n_ue, = struct.unpack("<I", fh.read(4))
         toff, uoff, woff, wsize = struct.unpack("<IIII", fh.read(16))
 
@@ -351,10 +353,11 @@ def load_ugm(path: str | Path) -> UGMFile:
             pos += seg_len
             if seg_type == SEG_HISTORY and seg_len > 0:
                 n_nodes = len(trees)  # infer
-                depth = seg_len // max(1, n_nodes)
-                if depth > 0:
-                    buf = np.frombuffer(seg_data, dtype=np.int8).reshape(n_nodes, depth)
-                    history = UGMHistorySegment(n_nodes=n_nodes, depth=depth, buffer=buf)
+                if n_nodes > 0 and seg_len % n_nodes == 0:
+                    depth = seg_len // n_nodes
+                    if depth > 0:
+                        buf = np.frombuffer(seg_data, dtype=np.int8).reshape(n_nodes, depth)
+                        history = UGMHistorySegment(n_nodes=n_nodes, depth=depth, buffer=buf)
             elif seg_type == SEG_METADATA:
                 metadata = UGMMetadata(data=json.loads(seg_data.decode("utf-8")))
 

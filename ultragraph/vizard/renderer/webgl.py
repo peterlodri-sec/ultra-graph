@@ -106,7 +106,7 @@ _WEBGL_JS = r"""(() => {
     ];
     const up = [0, 1, 0];
     const f = 1 / Math.tan(Math.PI/6);
-    const aspect = W / H;
+    const aspect = H > 0 ? W / H : 1;
     const near = 0.1, far = 100;
     return mat4Persp(f/aspect, f, near, far, eye, [cam.tx, cam.ty, 0], up);
   }
@@ -131,7 +131,7 @@ _WEBGL_JS = r"""(() => {
 
   function mul44(a, b) { const r = new Array(16).fill(0); for (let i=0;i<4;i++) for (let j=0;j<4;j++) for (let k=0;k<4;k++) r[i*4+j] += a[i*4+k] * b[k*4+j]; return r; }
   function sub(a, b) { return [a[0]-b[0], a[1]-b[1], a[2]-b[2]]; }
-  function norm(a) { const l = Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]); return [a[0]/l, a[1]/l, a[2]/l]; }
+  function norm(a) { const l = Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]); if (l > 0) { return [a[0]/l, a[1]/l, a[2]/l]; } return [0, 0, 0]; }
   function cross(a, b) { return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
   function dot(a, b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
 

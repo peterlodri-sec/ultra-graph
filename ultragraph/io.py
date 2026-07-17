@@ -63,52 +63,57 @@ def save(ug: UltraGraph, path: str, include_masters: bool = True, packed: bool =
 
 
 def load(path: str) -> UltraGraph:
-    data = np.load(path, allow_pickle=False)
-    meta = json.loads(str(data["__meta__"]))
-    ug = UltraGraph(meta["name"])
+    with np.load(path, allow_pickle=False) as data:
+        meta = json.loads(str(data["__meta__"]))
+        ug = UltraGraph(meta["name"])
 
-    for idx, entry in enumerate(meta["trees"]):
-        if entry["kind"] == "dense":
-            t = Tree.dense(entry["in_dim"], entry["out_dim"], name=entry["name"], act=entry["act"])
-            if entry.get("wq_packed"):
-                shape = tuple(entry["wq_shape"])
-                t.wq = unpack_ternary(data[f"t{idx}_wq"], int(np.prod(shape))).reshape(shape)
+        for idx, entry in enumerate(meta["trees"]):
+            if entry["kind"] == "dense":
+                t = Tree.dense(entry["in_dim"], entry["out_dim"], name=entry["name"], act=entry["act"])
+                if entry.get("wq_packed"):
+                    shape = tuple(entry["wq_shape"])
+                    t.wq = unpack_ternary(data[f"t{idx}_wq"], int(np.prod(shape))).reshape(shape)
+                else:
+                    t.wq = data[f"t{idx}_wq"]
+                t.w_scale = float(entry["w_scale"])
+                t.adhoc["bias"] = Tensor(data[f"t{idx}_bias"], requires_grad=True)
+                if f"t{idx}_wmaster" in data.files:
+                    t.adhoc["w_master"] = Tensor(data[f"t{idx}_wmaster"], requires_grad=True)
             else:
-                t.wq = data[f"t{idx}_wq"]
-            t.w_scale = float(entry["w_scale"])
-            t.adhoc["bias"] = Tensor(data[f"t{idx}_bias"], requires_grad=True)
-            if f"t{idx}_wmaster" in data.files:
-                t.adhoc["w_master"] = Tensor(data[f"t{idx}_wmaster"], requires_grad=True)
-        else:
-            t = Tree(entry["n_nodes"], name=entry["name"])
-            t._esrc = data[f"t{idx}_esrc"].tolist()
-            t._edst = data[f"t{idx}_edst"].tolist()
-            t._eval = data[f"t{idx}_eval"].tolist()
-        t.nodes[:] = data[f"t{idx}_nodes"]
-        ug.add(t)
+                t = Tree(entry["n_nodes"], name=entry["name"])
+                t._esrc = data[f"t{idx}_esrc"].tolist()
+                t._edst = data[f"t{idx}_edst"].tolist()
+                t._eval = data[f"t{idx}_eval"].tolist()
+            t.nodes[:] = data[f"t{idx}_nodes"]
+            ug.add(t)
 
-    for me in meta["modules"]:
-        if me["type"] == "embedding":
-            emb = Embedding(me["vocab"], me["dim"], name=me["name"])
-            emb.table = Tensor(data[me["array"]], requires_grad=True)
-            ug.register(emb)
+        for me in meta["modules"]:
+            if me["type"] == "embedding":
+                emb = Embedding(me["vocab"], me["dim"], name=me["name"])
+                emb.table = Tensor(data[me["array"]], requires_grad=True)
+                ug.register(emb)
 
-    for ue in meta["ultra_edges"]:
-        ug.wire(ug.trees[ue["src"]], ug.trees[ue["dst"]], ue["kind"])
+        for ue in meta["ultra_edges"]:
+            ug.wire(ug.trees[ue["src"]], ug.trees[ue["dst"]], ue["kind"])
 
-    return ug
+        return ug
 
 
-def save_params(modules, path: str) -> None:
+def save_params(modules, path: str, meta: dict | None = None) -> None:
     """Save the fp32 parameters of an arbitrary list of modules (anything exposing
     ``parameters() -> list[Tensor]``) — covers Attention/MoE/RMSNorm/LayerNorm/
     Embedding/Tree, which the graph save/load does not fully serialize. Restore with
-    ``load_params`` onto the same architecture."""
+    ``load_params`` onto the same architecture.
+
+    If ``meta`` is given it is stored (JSON) under the ``__meta__`` key so loaders can
+    recover architecture; omitted by default so generic callers stay byte-compatible."""
     arrays: dict[str, np.ndarray] = {}
     for i, m in enumerate(modules):
         params = m.parameters() if hasattr(m, "parameters") else []
         for j, p in enumerate(params):
             arrays[f"m{i}_p{j}"] = p.data
+    if meta is not None:
+        arrays["__meta__"] = np.array(json.dumps(meta))
     with open(path, "wb") as f:
         np.savez(f, **arrays)
 
@@ -116,13 +121,13 @@ def save_params(modules, path: str) -> None:
 def load_params(modules, path: str) -> None:
     """Load parameters saved by ``save_params`` into the same module list (in place),
     then re-quantize any module exposing ``requantize()``."""
-    data = np.load(path, allow_pickle=False)
-    for i, m in enumerate(modules):
-        params = m.parameters() if hasattr(m, "parameters") else []
-        for j, p in enumerate(params):
-            key = f"m{i}_p{j}"
-            if key in data.files:
-                p.data[...] = data[key]
+    with np.load(path, allow_pickle=False) as data:
+        for i, m in enumerate(modules):
+            params = m.parameters() if hasattr(m, "parameters") else []
+            for j, p in enumerate(params):
+                key = f"m{i}_p{j}"
+                if key in data.files:
+                    p.data[...] = data[key]
     for m in modules:
         r = getattr(m, "requantize", None)
         if callable(r):

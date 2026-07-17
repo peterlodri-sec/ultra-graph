@@ -355,6 +355,8 @@ class Dropout:
     def __call__(self, x):
         if not self.training or self.p <= 0.0:
             return x
+        if self.p >= 1.0:
+            return x * Tensor(np.zeros(x.shape, dtype=np.float32))
         keep = 1.0 - self.p
         mask = (np.random.rand(*x.shape) < keep).astype(np.float32) / keep
         return x * Tensor(mask)

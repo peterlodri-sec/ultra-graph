@@ -14,9 +14,11 @@ Usage::
 
 
 import argparse
+import html
 import json
 import os
 import sys
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -31,6 +33,9 @@ _HUB_BASE = os.environ.get("ULTRAGRAPH_HUB", "https://ultragraph.dev/models")
 def cmd_pull(args: argparse.Namespace) -> None:
     name = args.name
     url = args.url or f"{_HUB_BASE}/{name}.npz"
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+        print(f"✗ Unsupported URL scheme: {url}", file=sys.stderr)
+        raise SystemExit(1)
     dest = Path(args.dir) / f"{name}.npz"
     dest.parent.mkdir(parents=True, exist_ok=True)
 
@@ -187,13 +192,13 @@ def _build_report(model, path: Path) -> str:
         pos = float((wq > 0).sum()) / total * 100 if total else 0
         neg = float((wq < 0).sum()) / total * 100 if total else 0
         hm = byte_heatmap_svg(wq)
-        rows.append(f"<tr><td>{t.name}</td><td>{'×'.join(str(s) for s in wq.shape)}</td>"
+        rows.append(f"<tr><td>{html.escape(t.name)}</td><td>{'×'.join(str(s) for s in wq.shape)}</td>"
                     f"<td>{sparsity:.0f}%</td><td>{pos:.0f}%</td><td>{neg:.0f}%</td>"
                     f"<td>{hm}</td></tr>")
 
     # Build HTML
     samples_html = "".join(
-        f"<h3>Temperature {t}</h3><pre>{s}</pre>" for t, s in samples
+        f"<h3>Temperature {t}</h3><pre>{html.escape(s)}</pre>" for t, s in samples
     )
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
@@ -577,7 +582,7 @@ def cmd_search(args: argparse.Namespace) -> None:
     import urllib.request
 
     query = args.query or ""
-    url = f"{_HUB_REGISTRY}/models?q={query}" if query else f"{_HUB_REGISTRY}/models"
+    url = f"{_HUB_REGISTRY}/models?{urllib.parse.urlencode({'q': query})}" if query else f"{_HUB_REGISTRY}/models"
 
     try:
         with urllib.request.urlopen(url, timeout=10) as resp:

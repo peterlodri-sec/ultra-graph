@@ -205,6 +205,16 @@ def test_wat_activations():
         assert np.isfinite(out).all()
 
 
+def test_wat_tanh_no_literal_placeholder():
+    """Tanh activation interpolates {acc} rather than emitting it literally."""
+    t0 = UGMTree(kind=0, act=4, in_dim=2, out_dim=2, name="tanh0", w_scale=1.0,
+                 wq=np.random.randint(-1, 2, (2, 2)).astype(np.int8),
+                 bias=np.zeros(2, dtype=np.float32))
+    module = UGMFile(trees=[t0], ultra_edges=[])
+    wat = generate_wat(module)
+    assert "{acc}" not in wat
+
+
 def test_wat_multi_source():
     """Tree with multiple plain inputs produces correct sum loop."""
     t0 = UGMTree(kind=0, act=1, in_dim=2, out_dim=8, name="src0", w_scale=1.0,

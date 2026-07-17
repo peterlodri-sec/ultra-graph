@@ -197,6 +197,8 @@ def test_dropout_train_eval_and_grad():
     d.training = False
     passthrough = d(Tensor(np.ones((2, 3), dtype=np.float32)))
     assert np.array_equal(passthrough.data, np.ones((2, 3)))
+    z = Dropout(1.0)(Tensor(np.ones((2, 3), dtype=np.float32)))
+    assert (z.data == 0).all() and np.isfinite(z.data).all()  # p=1.0 -> zeros, no NaN
 
 
 def test_weight_decay_shrinks_params():

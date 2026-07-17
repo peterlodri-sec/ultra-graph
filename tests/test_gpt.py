@@ -55,6 +55,46 @@ def test_gpt_save_load_roundtrip():
         assert np.allclose(m2(ids).data, before, atol=1e-5)                # identical after
 
 
+def test_load_model_reconstructs_nondefault_arch():
+    # load_model must rebuild ANY architecture from embedded hp — not the old
+    # hardcoded GPT(256, 128, 2, 2). This shape differs in every hyper-parameter.
+    m = GPT(vocab=16, d_model=16, n_layers=1, n_heads=4, max_len=16)
+    ids = np.array([[2, 5, 7, 1, 3]], dtype=np.int64)
+    before = m(ids).data
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "gpt.npz")
+        m.save(p)
+        m2 = GPT.load_model(p)                       # no pre-built shape supplied
+        assert (m2.vocab, m2.d_model, m2.n_layers, m2.n_heads) == (16, 16, 1, 4)
+        assert np.allclose(m2(ids).data, before, atol=1e-5)
+
+
+def test_load_model_auto_detects_deployed():
+    m = _tiny_gpt()
+    ids = np.array([[2, 5, 7, 1, 3]], dtype=np.int64)
+    ref = m(ids).data
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "dep.npz")
+        m.save_deployed(p)
+        dm = GPT.load_model(p)                        # auto-detect -> deployed path
+        assert all(t.deployed for t in dm._dense_trees())
+        assert np.allclose(dm(ids).data, ref, atol=1e-5)
+
+
+def test_load_model_legacy_without_meta_raises():
+    # A checkpoint with no architecture metadata cannot be reshaped safely
+    # (n_heads/max_len are not recoverable) -> loud error, never silent mis-shape.
+    import pytest
+
+    from ultragraph.io import save_params
+    m = _tiny_gpt()
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "legacy.npz")
+        save_params([m], p)                          # no meta= -> legacy layout
+        with pytest.raises(ValueError, match="no architecture metadata"):
+            GPT.load_model(p)
+
+
 def test_gpt_deployed_is_byte_exact_and_smaller():
     m = _tiny_gpt()
     ids = np.array([[2, 5, 7, 1, 3]], dtype=np.int64)

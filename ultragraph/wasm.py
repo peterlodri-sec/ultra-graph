@@ -154,10 +154,10 @@ def _act_expr(act: int, acc: str = "$acc") -> str:
         # fast tanh: 2x / (1 + |2x|)
         return (
             "(f32.div\n"
-            "          (f32.mul (local.get {acc}) (f32.const 2))\n"
+            f"          (f32.mul (local.get {acc}) (f32.const 2))\n"
             "          (f32.add\n"
             "            (f32.const 1)\n"
-            "            (f32.abs (f32.mul (local.get {acc}) (f32.const 2)))\n"
+            f"            (f32.abs (f32.mul (local.get {acc}) (f32.const 2)))\n"
             "          )\n"
             "        )"
         )

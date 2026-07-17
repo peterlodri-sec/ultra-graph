@@ -18,9 +18,11 @@ def _finish_png(plt, fig, path):
     """Save ``fig`` to ``path`` (or return it) and close when saved."""
     if path is None:
         return fig
-    fig.savefig(path, dpi=150, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
-    plt.close(fig)
+    try:
+        fig.savefig(path, dpi=150, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+    finally:
+        plt.close(fig)
     return path
 
 
