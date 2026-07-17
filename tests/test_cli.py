@@ -80,6 +80,39 @@ def test_report_generates_html():
         assert "Parameters" in html.read_text()
 
 
+def test_is_deployed_ckpt_discriminates_params_vs_deployed():
+    # Regression: GPT.save now also writes __meta__ (format="params"), so the deployed
+    # detector must NOT classify an fp32 training checkpoint as deployed — otherwise CLI
+    # commands route it into GPT.load_deployed (missing `trees`) and crash.
+    from ultragraph.cli import _is_deployed_ckpt
+    from ultragraph.model import GPT
+    m = GPT(vocab=16, d_model=16, n_layers=1, n_heads=2, max_len=16)
+    with tempfile.TemporaryDirectory() as d:
+        params = Path(d) / "train.npz"
+        deployed = Path(d) / "model.q.npz"
+        m.save(str(params))
+        m.save_deployed(str(deployed))
+        assert _is_deployed_ckpt(np.load(params, allow_pickle=False)) is False
+        assert _is_deployed_ckpt(np.load(deployed, allow_pickle=False)) is True
+
+
+def test_breed_rejects_training_checkpoints():
+    # Regression: breeding fp32 training checkpoints (now carrying __meta__) must fail
+    # loud rather than silently averaging m*_p* arrays into an invalid checkpoint.
+    import pytest
+
+    from ultragraph.model import GPT
+    m = GPT(vocab=16, d_model=16, n_layers=1, n_heads=2, max_len=16)
+    with tempfile.TemporaryDirectory() as d:
+        a = Path(d) / "a.npz"
+        b = Path(d) / "b.npz"
+        m.save(str(a))
+        m.save(str(b))
+        with pytest.raises(SystemExit):
+            cmd_breed(_make_args(model_a=str(a), model_b=str(b), ratio=0.5,
+                                 output=str(Path(d) / "out.npz")))
+
+
 def test_practice_runs():
     import io
     import sys

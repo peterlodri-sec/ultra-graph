@@ -27,6 +27,22 @@ import numpy as np
 _HUB_BASE = os.environ.get("ULTRAGRAPH_HUB", "https://ultragraph.dev/models")
 
 
+def _is_deployed_ckpt(data) -> bool:
+    """True only for a *deployed* checkpoint (ternary bytes). ``GPT.save`` now also
+    writes ``__meta__`` (with ``format="params"``), so ``"__meta__" in data.files`` no
+    longer distinguishes a deployed checkpoint from an fp32 training checkpoint —
+    callers that feed ``GPT.load_deployed`` must gate on the format instead."""
+    import json
+
+    if "__meta__" not in data.files:
+        return False
+    try:
+        meta = json.loads(str(data["__meta__"]))
+    except Exception:
+        return False
+    return meta.get("format") == "deployed" or "trees" in meta
+
+
 # ---------------------------------------------------------------------------
 # pull  — download and verify a deployed model
 # ---------------------------------------------------------------------------
@@ -150,7 +166,7 @@ def cmd_report(args: argparse.Namespace) -> None:
     # Detect deployed vs training checkpoint
     try:
         data = np.load(path, allow_pickle=False)
-        if "__meta__" in data.files:
+        if _is_deployed_ckpt(data):
             model = GPT.load_deployed(str(path))
         else:
             raise ValueError("training checkpoint — load via model.load()")
@@ -298,6 +314,11 @@ def cmd_breed(args: argparse.Namespace) -> None:
     a_data = np.load(a_path, allow_pickle=False)
     b_data = np.load(b_path, allow_pickle=False)
 
+    if not (_is_deployed_ckpt(a_data) and _is_deployed_ckpt(b_data)):
+        print("✗ breed requires deployed checkpoints (.q.npz from save_deployed)",
+              file=sys.stderr)
+        raise SystemExit(1)
+
     # Use A's meta as base, merge hp names
     a_meta = _json.loads(str(a_data["__meta__"]))
     merged_hp = dict(a_meta.get("hp", {}))
@@ -343,7 +364,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
     target = args.target
     data = np.load(model_path, allow_pickle=False)
 
-    if "__meta__" in data.files:
+    if _is_deployed_ckpt(data):
         model = GPT.load_deployed(str(model_path))
     else:
         print("⚠ Training checkpoint detected; need deployed .npz", file=sys.stderr)
@@ -636,7 +657,7 @@ def cmd_spar(args: argparse.Namespace) -> None:
             print(f"✗ {path} not found", file=sys.stderr)
             raise SystemExit(1)
         data = np.load(path, allow_pickle=False)
-        if "__meta__" not in data.files:
+        if not _is_deployed_ckpt(data):
             print(f"✗ {path} is not a deployed checkpoint", file=sys.stderr)
             raise SystemExit(1)
         model = GPT.load_deployed(str(path))
@@ -666,7 +687,7 @@ def cmd_taste(args: argparse.Namespace) -> None:
         print(f"✗ {path} not found", file=sys.stderr)
         raise SystemExit(1)
     data = np.load(path, allow_pickle=False)
-    if "__meta__" not in data.files:
+    if not _is_deployed_ckpt(data):
         print(f"✗ {path} is not a deployed checkpoint", file=sys.stderr)
         raise SystemExit(1)
 
