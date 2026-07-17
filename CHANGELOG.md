@@ -4,6 +4,38 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.20.0] — 2026-07-17
+
+### Fixed
+- **WASM `tanh`** — the tanh activation expression emitted a literal `{acc}` placeholder
+  instead of the accumulator local, producing invalid WAT for any tanh-activated tree.
+- **RP2040 codegen** — the generated forward pass reused one buffer
+  (`tree_forward(buf, buf)`), so input/output aliasing corrupted every tree after the
+  first; the buffer was also sized only from the first/last tree and overflowed on a
+  wider intermediate tree. Now uses ping-pong buffers sized to the widest tree.
+- **`Dropout`** — `p=1.0` divided by zero (`NaN`); now returns zeros.
+- **File handles** — `io.load` / `load_params` and `GPT.load_deployed` / `load_model`
+  now close the `np.load` `NpzFile` (previously leaked).
+- **`ugm.load_ugm`** — validates the format version and guards the history-segment
+  reshape against non-divisible lengths (previously a hard crash on malformed files).
+- **`linker`** — dropped a stray `header=None` override.
+- **Viz** — matplotlib figures are closed on error; generated WebGL guards division by
+  zero (aspect ratio and vector normalize).
+
+### Changed
+- **`GPT.save` now embeds hyper-parameters**, so `GPT.load_model` reconstructs any
+  architecture. It previously hardcoded `GPT(256, 128, 2, 2)` and only that shape
+  loaded. **Legacy checkpoints saved without metadata now raise a clear error** instead
+  of silently loading into the wrong shape — re-save them with `GPT.save`.
+- **RP2040 codegen raises `NotImplementedError`** on residual/merge graphs instead of
+  silently emitting wrong C (use the WASM backend for those topologies).
+
+### Security
+- **CLI** — report HTML now escapes model-generated text and names; `search` URL-encodes
+  the query; `pull` rejects non-`http(s)` URL schemes.
+- **Wiki client** — validates the language code before building the API URL; uses
+  SHA-256 (not SHA-1) for cache-key hashing.
+
 ## [0.12.0] — 2026-07-11
 
 ### Added
