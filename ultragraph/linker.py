@@ -276,4 +276,4 @@ def link_moe(router: UGMFile, experts: list[UGMFile]) -> UGMFile:
         ))
         expert_offset += len(expert.trees)
 
-    return UGMFile(trees=trees, ultra_edges=edges, header=None)
+    return UGMFile(trees=trees, ultra_edges=edges)

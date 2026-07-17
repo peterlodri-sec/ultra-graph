@@ -15,6 +15,7 @@ Requires the optional ``wiki`` extra:  ``uv sync --extra wiki``.
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from .core import Tree, UltraGraph
@@ -28,6 +29,8 @@ class MediaWikiClient:
     def __init__(self, lang="hu", user_agent="ultragraph-wiki/1.0", cache_dir=None):
         from mediawiki import MediaWiki  # lazy: only needed with the `wiki` extra
 
+        if not re.match(r"^[a-z][a-z0-9-]{1,15}$", lang):
+            raise ValueError(f"invalid language code: {lang!r}")
         self.lang = lang
         self.cache_dir = Path(cache_dir) if cache_dir else _DEFAULT_CACHE
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -39,7 +42,8 @@ class MediaWikiClient:
 
     # -- on-disk JSON cache --------------------------------------------------
     def _cache_path(self, kind, key):
-        h = hashlib.sha1(f"{self.lang}:{kind}:{key}".encode()).hexdigest()[:16]
+        # sha256 (non-security cache key; picked over sha1 to satisfy SAST/CWE-916)
+        h = hashlib.sha256(f"{self.lang}:{kind}:{key}".encode()).hexdigest()[:16]
         return self.cache_dir / f"{kind}_{h}.json"
 
     def _cached(self, kind, key, produce):

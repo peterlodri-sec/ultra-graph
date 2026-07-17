@@ -20,3 +20,4 @@ examples/data/hu_seg*.log
 _bmad-output/
 skills/reports/
 _bmad/config.user.yaml
+.DS_Store

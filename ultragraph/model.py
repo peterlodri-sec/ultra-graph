@@ -119,10 +119,14 @@ class GPT:
 
     # -- persistence ----------------------------------------------------------
     def save(self, path):
-        """Save the fp32 parameters. Restore with :meth:`load` onto a ``GPT`` built
-        with the same hyper-parameters (byte-exact for inference after re-quantize)."""
+        """Save the fp32 parameters, tagged with this model's hyper-parameters so
+        :meth:`load_model` can rebuild the architecture. Restore with :meth:`load` onto
+        a ``GPT`` built with the same hyper-parameters (byte-exact for inference after
+        re-quantize), or with :meth:`load_model` (reads the embedded hp)."""
         from .io import save_params
-        save_params([self], path)
+        hp = {"vocab": self.vocab, "d_model": self.d_model, "n_layers": self.n_layers,
+              "n_heads": self.n_heads, "max_len": self.max_len, "mlp_ratio": self.mlp_ratio}
+        save_params([self], path, meta={"format": "params", "hp": hp})
 
     def load(self, path):
         """Load parameters saved by :meth:`save` into this model in place, then
@@ -161,7 +165,7 @@ class GPT:
         from .pack import pack_ternary
         hp = {"vocab": self.vocab, "d_model": self.d_model, "n_layers": self.n_layers,
               "n_heads": self.n_heads, "max_len": self.max_len, "mlp_ratio": self.mlp_ratio}
-        meta = {"hp": hp, "packed": bool(packed), "trees": []}
+        meta = {"format": "deployed", "hp": hp, "packed": bool(packed), "trees": []}
         arrays = {}
         for i, t in enumerate(self._dense_trees()):
             entry = {"w_scale": float(t.w_scale), "shape": list(t.wq.shape), "packed": bool(packed)}
@@ -181,23 +185,23 @@ class GPT:
         import json
 
         from .pack import unpack_ternary
-        data = np.load(path, allow_pickle=False)
-        meta = json.loads(str(data["__meta__"]))
-        hp = meta["hp"]
-        m = cls(hp["vocab"], hp["d_model"], hp["n_layers"], hp["n_heads"],
-                max_len=hp["max_len"], mlp_ratio=hp["mlp_ratio"])
-        for i, (t, entry) in enumerate(zip(m._dense_trees(), meta["trees"])):
-            shape = tuple(entry["shape"])
-            if entry.get("packed"):
-                t.wq = unpack_ternary(data[f"t{i}_wq"], int(np.prod(shape))).reshape(shape)
-            else:
-                t.wq = data[f"t{i}_wq"]
-            t.w_scale = float(entry["w_scale"])
-            t.adhoc["bias"] = Tensor(data[f"t{i}_bias"])
-            t.adhoc["w_master"] = None       # -> deployed path in Tree.forward
-        for name, ten in m._fp32_gains():
-            ten.data[...] = data[f"f_{name}"]
-        return m
+        with np.load(path, allow_pickle=False) as data:
+            meta = json.loads(str(data["__meta__"]))
+            hp = meta["hp"]
+            m = cls(hp["vocab"], hp["d_model"], hp["n_layers"], hp["n_heads"],
+                    max_len=hp["max_len"], mlp_ratio=hp["mlp_ratio"])
+            for i, (t, entry) in enumerate(zip(m._dense_trees(), meta["trees"])):
+                shape = tuple(entry["shape"])
+                if entry.get("packed"):
+                    t.wq = unpack_ternary(data[f"t{i}_wq"], int(np.prod(shape))).reshape(shape)
+                else:
+                    t.wq = np.array(data[f"t{i}_wq"])
+                t.w_scale = float(entry["w_scale"])
+                t.adhoc["bias"] = Tensor(np.array(data[f"t{i}_bias"]))
+                t.adhoc["w_master"] = None       # -> deployed path in Tree.forward
+            for name, ten in m._fp32_gains():
+                ten.data[...] = data[f"f_{name}"]
+            return m
 
     # -- generation -----------------------------------------------------------
     def generate(self, prompt, n_new, temperature=1.0, top_k=None, top_p=None,
@@ -423,14 +427,24 @@ class GPT:
         """
         import json
 
-        data = np.load(path, allow_pickle=False)
-        if "__meta__" in data:
-            meta = json.loads(str(data["__meta__"]))
-            if "hp" in meta:
+        with np.load(path, allow_pickle=False) as data:
+            meta = json.loads(str(data["__meta__"])) if "__meta__" in data else None
+        if meta is not None:
+            if meta.get("format") == "deployed" or "trees" in meta:
                 return cls.load_deployed(path)
-        instance = cls(256, 128, 2, 2)
-        instance.load(path)
-        return instance
+            if "hp" in meta:
+                hp = meta["hp"]
+                instance = cls(hp["vocab"], hp["d_model"], hp["n_layers"],
+                               hp["n_heads"], max_len=hp["max_len"],
+                               mlp_ratio=hp["mlp_ratio"])
+                instance.load(path)
+                return instance
+        raise ValueError(
+            f"{path}: checkpoint has no architecture metadata, so the model shape "
+            "cannot be inferred (n_heads and max_len are not recoverable from weight "
+            "shapes). Rebuild the model with its hyper-parameters and call "
+            "GPT(...).load(path), or re-save it with GPT.save to embed them."
+        )
 
 
 class Mesh:
