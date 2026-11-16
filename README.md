@@ -216,6 +216,51 @@ just demo        # char-LM end-to-end
 just viz         # render example SVGs
 ```
 
+## Deterministic kernels — `zerocpu`
+
+`ultragraph.zerocpu` is the integer-only half of the library: no float appears in any
+deterministic path, so the same input produces the same bytes on every machine.
+
+```python
+from ultragraph.zerocpu import SpacetimeGraph, parse_pq, apply_pq, emit_ugm, load_ugm, partition
+
+g = SpacetimeGraph()
+a, b, c = g.add_node(1, (0, 0, 0)), g.add_node(0, (1 << 16, 0, 0)), g.add_node(0, (2 << 16, 0, 0))
+g.add_edge(a, b, +1); g.add_edge(b, c, +1); g.add_edge(c, a, -1)
+g.tick(3)                                   # state' = clamp8(state + sum(w * src)), ints only
+apply_pq(g, "edge 1 0 +1\nset 2 -7 q 1/2", seed=7)   # exact-rational acceptance, reproducible
+p = partition(3, [(0, 1), (1, 2), (2, 0)], k=1)
+```
+
+| module | role |
+| --- | --- |
+| `zerocpu/fixed.py` | Q16.16 arithmetic, round-half-away-from-zero, symmetric about zero |
+| `zerocpu/spacetime.py` | `SpacetimeGraph`: ternary causal edges with `dt`, `tick`/`untick` history, light cones, sha256 fingerprint |
+| `zerocpu/evolve.py` | `p/q` prompt language (`edge`, `flip`, `prune`, `set`, `step`, `wire`) with exact-rational acceptance |
+| `zerocpu/emit.py` | `UGMZ` artifact v1 — 32-byte header, 24-byte node/edge records, little-endian, byte-stable |
+| `zerocpu/vaked_bridge.py` | lowered `.vaked` workflow → world → `.ugmz` (set `VAKED_ROOT` to a working `vakedc`) |
+| `zerocpu/lod.py` | quasi-regular partitioning: maximises structure, *reports* residual defect instead of claiming regularity |
+| `rust/zerocpu/` | the same kernels in Rust (NEON on aarch64) + a `world` binary that ticks a `.ugmz` |
+
+Parity is pinned by golden fixtures, so the Python and Rust halves cannot drift apart
+silently: `cargo test` replays the committed `.ugmz` artifacts and LOD partitions that
+the Python suite regenerates.
+
+```sh
+cargo run --manifest-path rust/zerocpu/Cargo.toml -- rust/zerocpu/tests/fixtures/world.ugmz 3
+```
+
+### Published kernels on [g8t.is](https://g8t.is)
+
+Capsules are measured locally (`cntvct_el0`) and signed; `cycles/op` is an exact
+rational, never a float.
+
+| capsule | signature | cycles/op | FKN | id |
+| --- | --- | --- | --- | --- |
+| `round_div_q16` | `(i64,i64)->i64` | 1709533/200000 | 500 | `24190df2f99d90771ffcd00281129dee` |
+| `pack5_trits_u8` | `(i8,i8,i8,i8,i8)->u8` | 2887733/400000 | 500 | `13ddc68f8edc93e28ac25d96efb8b7fe` |
+| `saturate_i8_i64` | `(i64)->i64` | 1324001/400000 | 500 | `78c8596dbdfa3ec1d99c44457c7a4a16` |
+
 ## Layout
 
 ```
@@ -228,6 +273,8 @@ ultragraph/optim.py     SGD + Adam (grad clip, weight decay, gradient accumulati
 ultragraph/pack.py      dense ternary bit-packing (5 values/byte, ~1.58-bit)
 ultragraph/tokenize.py  byte-level tokenizer (ByteTokenizer, vocab 256)
 ultragraph/vaked.py      optional vaked lowering (lower_graph, compile_vaked via vendored vakedc)
+ultragraph/zerocpu/     integer-only kernels: fixed / spacetime / evolve / emit / vaked_bridge / lod
+rust/zerocpu/           Rust twin of the same kernels (NEON on aarch64) + UGMZ `world` ticker
 ultragraph/viz/         svg.py (pure-SVG) + mpl.py (optional matplotlib) — micro / macro / byte-heatmap
 ultragraph/io.py        byte-exact save / load (optional packed weights); save_params/load_params
 ultragraph/wiki.py      optional MediaWiki client + build_wiki_graph (live hu.wikipedia -> ultra-graph)
@@ -242,7 +289,7 @@ Graph-theory reading list (Erdős classics): [`docs/references.md`](docs/referen
 ## Install from source
 
 ```sh
-git clone https://github.com/peterlodri-sec/ultra-graph
+git clone https://codeberg.org/8b-is/ultra-graph   # canonical; mirrors: github.com/8b-is/ultra-graph, github.com/peterlodri-sec/ultra-graph
 cd ultra-graph
 uv sync
 just test
