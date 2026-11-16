@@ -19,6 +19,12 @@ All notable changes to this project. Format follows
 - Cross-language replay fixture (`replay.pqq` + `replay.expected.txt`): Rust replays the
   program to byte-identical state, tick count and edge count as Python.
 
+### Published kernels
+- g8t capsules `trit_at_u8` (`(u8,u32)->i8`, 5-cycle lane extract), `saturate_trit_i64`
+  (`(i64)->i8`, 5 instructions) and `fx_sqrt_q16` (`(i64)->i64`, exact integer isqrt) —
+  +1400 FKN, all equivalence crowns. `trit_at_u8` was rejected once for an unbounded
+  index loop; capsules must terminate for any harness input.
+
 ### Notes
 - `.pqq` deliberately carries outcomes, not a seed: reproducing CPython's MT19937 draw
   order in another language would be a drifting surface. Compile-time resolution keeps

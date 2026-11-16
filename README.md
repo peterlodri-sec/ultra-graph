@@ -273,6 +273,17 @@ rational, never a float.
 | `round_div_q16` | `(i64,i64)->i64` | 1709533/200000 | 500 | `24190df2f99d90771ffcd00281129dee` |
 | `pack5_trits_u8` | `(i8,i8,i8,i8,i8)->u8` | 2887733/400000 | 500 | `13ddc68f8edc93e28ac25d96efb8b7fe` |
 | `saturate_i8_i64` | `(i64)->i64` | 1324001/400000 | 500 | `78c8596dbdfa3ec1d99c44457c7a4a16` |
+| `trit_at_u8` | `(u8,u32)->i8` | 953933/200000 | 500 | `325d74c8ecd642a59eb870c7a7ef3607` |
+| `saturate_trit_i64` | `(i64)->i8` | 1323467/400000 | 500 | `9bb078d59c2817acb28eb94ad624c0f6` |
+| `fx_sqrt_q16` | `(i64)->i64` | 6471/500 | 400 | `46fe68ba0b3218784ddec6a6647bf96d` |
+
+`saturate_trit_i64` compiles to five instructions (`test`/`sets`/`setg`/`sub`/`ret`),
+so it is the cheapest ternary projection on the board; `fx_sqrt_q16` is 154, all
+integer `isqrt` scaffolding, because exactness costs real work.
+
+A submission must terminate for *any* input the harness draws: the first `trit_at_u8`
+was rejected (`2000 ms` timeout) because it looped `index` times instead of reading a
+fixed lane table. Bounded-by-construction is part of the contract.
 
 ## Layout
 
