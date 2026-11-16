@@ -16,6 +16,8 @@ Three pieces that the float32 trainer and the int8 deployment path leave open:
   that keeps a big world model tickable, with its defect reported, not assumed.
 * :mod:`~ultragraph.zerocpu.pqq` -- compile a `p/q` prompt (draws resolved) and
   replay the result without a PRNG, in Python or in Rust.
+* :mod:`~ultragraph.zerocpu.hope` -- project a text to integer heat, seed it into
+  a world, tick, and collapse the state with an observer.
 """
 
 from .emit import emit_ugm, from_bytes, load_ugm, to_bytes
@@ -35,6 +37,16 @@ from .fixed import (
     to_float,
     to_fx,
     to_int,
+)
+from .hope import (
+    SIGNAL_STEP,
+    Observer,
+    Resonance,
+    Signal,
+    observer,
+    resonate,
+    seed_signal,
+    signal,
 )
 from .lod import Partition, PartitionError, coarsen, density_stats, partition
 from .pqq import (
@@ -65,11 +77,15 @@ __all__ = [
     "Op",
     "PQQ_HEADER",
     "PQQ_VERSION",
+    "SIGNAL_STEP",
+    "Signal",
+    "Observer",
     "Partition",
     "PartitionError",
     "PqError",
     "Prompt",
     "Report",
+    "Resonance",
     "Resolved",
     "SpacetimeGraph",
     "WorkflowError",
@@ -92,10 +108,14 @@ __all__ = [
     "load_pqq",
     "lower_vaked",
     "parse_pq",
+    "observer",
     "partition",
+    "resonate",
     "resolve",
     "run_pqq",
     "saturate",
+    "seed_signal",
+    "signal",
     "to_bytes",
     "to_float",
     "to_fx",

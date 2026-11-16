@@ -241,11 +241,25 @@ p = partition(3, [(0, 1), (1, 2), (2, 0)], k=1)
 | `zerocpu/vaked_bridge.py` | lowered `.vaked` workflow → world → `.ugmz` (set `VAKED_ROOT` to a working `vakedc`) |
 | `zerocpu/lod.py` | quasi-regular partitioning: maximises structure, *reports* residual defect instead of claiming regularity |
 | `zerocpu/pqq.py` | compiled `.pqq` programs: rational draws settled once at compile time, replayed with no PRNG |
+| `zerocpu/hope.py` | text → integer heat per lane → seeded world → tick → observer collapse; no floats, no keyword tables |
 | `rust/zerocpu/` | the same kernels in Rust (NEON on aarch64) + `world` (tick a `.ugmz`) and `replay` (apply a `.pqq`) binaries |
 
 Parity is pinned by golden fixtures, so the Python and Rust halves cannot drift apart
 silently: `cargo test` replays the committed `.ugmz` artifacts and LOD partitions that
 the Python suite regenerates.
+
+A text can also be projected straight onto the world.  There is no separate
+cascade engine: the projection sets ternary states and propagation is the ordinary
+`tick`, so the resonance is a state you can replay, not a narration.
+
+```python
+from ultragraph.zerocpu import load_ugm, resonate
+
+r = resonate(load_ugm("world.ugmz"), "Difference is everywhere.", rounds=2)
+r.signal.trits      # (-1, 1, 1, -1)  -- lanes above/below the text's own mean
+r.collapse          # +1, 0 or -1: the observer's verdict on the settled state
+r.trace             # ('0101ffff', '010200ff', '01030101') -- every round, in hex
+```
 
 A `p/q` prompt can be frozen into a `.pqq` program that any interpreter replays
 without a random source — the draw is a compile-time choice, the artifact records it:

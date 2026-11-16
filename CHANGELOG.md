@@ -4,6 +4,24 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.23.0] — 2026-11-16
+
+### Added
+- `ultragraph.zerocpu.hope` + Rust `zerocpu::hope` — a text is projected onto `n`
+  lanes as signed Q16.16 heat (position-salted bucket), centered by the per-lane
+  mean, and reduced to ternary trits. `resonate()` seeds the world, ticks, and
+  returns the full state trace plus an `Observer` collapse; propagation is the
+  ordinary `tick`, so nothing new can drift. Parity pinned by
+  `hope_signal.txt` / `hope.expected.txt`.
+
+### Notes
+- No floats and no keyword tables: `"hope"` and `"Shawshank"` are inputs like any
+  other. Centering is what gives a long text shape — uncentered, every lane drifts
+  to `+1` and the projection carries no information.
+- Deliberately not ported from the sketch: `f32` variance (breaks the
+  integer-only contract), hard-coded `nodes.get_mut(&1)` state hacking (a special
+  case for one word is not a kernel), and per-word narration in place of state.
+
 ## [0.22.0] — 2026-11-16
 
 ### Added

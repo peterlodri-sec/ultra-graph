@@ -712,3 +712,88 @@ def test_replay_fixture_is_stable():
     again = _diamond()
     run_pqq(again, pqq.read_text())
     assert emit_mod.state_hex(again) == expected.read_text().split("state=")[1][:8]
+
+
+# -- Hope cascade: a text becomes integer heat -------------------------------
+
+from ultragraph.zerocpu import (  # noqa: E402
+    SIGNAL_STEP,
+    Observer,
+    Resonance,
+    resonate,
+    seed_signal,
+    signal,
+)
+
+_HOPE_TEXT = (_FIXTURES / "hope_signal.txt").read_text()
+
+
+def test_hope_signal_is_integer_and_deterministic():
+    sig = signal("Hope is all around.", 8)
+    assert sig == signal("Hope is all around.", 8)
+    assert len(sig) == 8
+    assert all(type(h) is int for h in sig.heat)
+    assert all(t in (-1, 0, 1) for t in sig.trits)
+    assert sig.total_heat() % SIGNAL_STEP == 0
+    assert _raises(ValueError, signal, "x", 0)
+    assert _raises(TypeError, signal, b"bytes", 4)
+
+
+def test_hope_signal_carries_shape_not_just_heat():
+    """Centering keeps long texts from drifting to all-+1."""
+    sig = signal(_HOPE_TEXT, 4)
+    assert 1 in sig.trits and -1 in sig.trits
+    assert abs(sig.balance()) <= len(sig)
+    # position is part of the signal: a permutation is a different projection
+    assert signal(_HOPE_TEXT[::-1], 4).heat != sig.heat
+
+
+def test_hope_seed_requires_matching_lanes():
+    g = _world(4)
+    sig = signal("abc", 4)
+    seed_signal(g, sig)
+    assert g.state() == tuple(sig.trits)
+    assert _raises(ValueError, seed_signal, _world(4), signal("abc", 5))
+
+
+def test_hope_resonate_ticks_and_collapses():
+    g = _world(4)
+    g.add_edge(0, 1, +1)
+    g.add_edge(1, 2, +1)
+    g.add_edge(2, 3, +1)
+    r = resonate(g, _HOPE_TEXT, rounds=2)
+    assert isinstance(r, Resonance)
+    assert r.rounds == 2
+    assert len(r.trace) == 3
+    assert r.trace[0] == emit_mod.state_hex(g) or r.settled() == emit_mod.state_hex(g)
+    assert r.settled() == r.trace[-1]
+    assert r.collapse in (-1, 0, 1)
+    assert r.collapse == Observer("radio").of_world(g)
+    assert _raises(ValueError, resonate, g, "abc", rounds=-1)
+
+
+def test_hope_observer_is_silent_on_a_flat_world():
+    g = _world(3)
+    assert Observer().of_world(g) == 0
+    assert Observer().of_node(g, 0) == 0
+    g.set_state(0, -5)
+    assert Observer().of_node(g, 0) == -1
+    assert Observer().of_world(g) == -1
+
+
+def test_hope_fixture_is_stable():
+    """The committed projection and trace are what Python produces today."""
+    g = load_ugm(_FIXTURES / "vaked_diamond.ugmz")
+    r = resonate(g, _HOPE_TEXT, rounds=2)
+    heat_hex = b"".join(h.to_bytes(8, "little", signed=True) for h in r.signal.heat).hex()
+    expected = "\n".join(
+        [
+            f"heat={heat_hex}",
+            "trits=" + "".join(str(t) for t in r.signal.trits),
+            "trace=" + ",".join(r.trace),
+            f"collapse={r.collapse}",
+            f"balance={r.signal.balance()}",
+            f"total_heat={r.signal.total_heat()}",
+        ]
+    )
+    assert (_FIXTURES / "hope.expected.txt").read_text().strip() == expected

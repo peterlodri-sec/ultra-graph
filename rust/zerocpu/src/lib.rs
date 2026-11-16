@@ -14,10 +14,12 @@
 //!   keeps a large world model tickable.
 //! * [`world`] -- the `UGMZ` artifact: parse, tick, mutate, write back.
 //! * [`pqq`] -- compiled `.pqq` programs replayed against a [`world::World`].
+//! * [`hope`] -- a text projected to integer heat, seeded into a world, ticked.
 //!
 //! No floating point is used in any deterministic path.
 
 pub mod fixed;
+pub mod hope;
 pub mod lod;
 pub mod pqq;
 pub mod ternary;
@@ -31,6 +33,7 @@ pub use fixed::{
     to_float, to_int, FRAC_BITS, ONE,
 };
 pub use lod::{coarsen, partition, seed_order, LodError, Partition};
+pub use hope::{observer, resonate, signal, HopeError, Resonance, Signal};
 pub use pqq::{PqError, Report};
 pub use world::{Edge, World, WorldError};
 pub use ternary::{dot_i8, dot_i8_scalar, dot_ternary, pack5, unpack5, TRITS_PER_BYTE};
