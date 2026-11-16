@@ -4,6 +4,42 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.21.0] — 2026-11-15
+
+Deterministic compute with a Rust twin: every number produced by this release is
+identical on every platform, and reproducible from committed golden vectors.
+
+### Added
+- **`ultragraph.zerocpu`** — integer-only kernels with no float in any
+  deterministic path. `fixed` (Q16.16, round-half-away-from-zero, symmetric about
+  zero), `spacetime` (`SpacetimeGraph`: ternary causal edges with `dt` delay,
+  `tick`/`untick` with history, light-cone queries, sha256 fingerprint), and
+  `evolve` (a `p/q` prompt language — `edge`, `flip`, `prune`, `set`, `step`,
+  `wire` — with exact-rational acceptance and a human-readable report).
+- **`emit`** — the `UGMZ` artifact format (v1): 32-byte header, fixed-width
+  24-byte node/edge records, little-endian, byte-identical across runs and
+  across Python/Rust. Sibling of `.ugm`, not a replacement.
+- **`vaked_bridge`** — a lowered Vaked workflow (`gen/workflow/wf.json`) becomes a
+  spacetime world, so a `.vaked` source compiles straight to `.ugmz`
+  (`lower_vaked`, `vaked_to_ugm`). Honours `VAKED_ROOT` and fails with a clear
+  message rather than importing the broken vendored compiler.
+- **`lod`** — quasi-regular partitioning for coarse-graining large worlds:
+  calibrated clustering in Q16.16 that maximises structure (`concentration`) and
+  *reports* the residual quasi-randomness (`defect`) instead of asserting
+  regularity. `partition`, `coarsen`, `density_stats`.
+- **Rust crate `rust/zerocpu`** (standalone, not shipped in the wheel): `fixed`,
+  `ternary` (5 trits/byte, dot products over `i8` and ternary weights), `neon`
+  (`vmull_s8`/`vpadalq_s16` path on aarch64, scalar elsewhere), `lod` mirroring
+  the Python compressor, and a `world` binary that ticks a `.ugmz` artifact.
+  Cross-language parity is enforced by committed fixtures, so the two
+  implementations cannot drift silently.
+
+### Notes
+- Saturating at `int8` is not bijective, so the honest claim is *memory-based*
+  reversibility (`tick(remember=True)` / `untick`), not unitary evolution.
+- The vendored `ultragraph/vakedc/` remains unusable upstream (de-indented);
+  `VAKED_ROOT` is the supported path to a working compiler.
+
 ## [0.20.0] — 2026-07-17
 
 ### Fixed
