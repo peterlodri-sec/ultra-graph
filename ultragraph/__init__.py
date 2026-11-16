@@ -37,11 +37,21 @@ from .pack import pack_ternary, unpack_ternary
 from .quant import dequant, quantize_act_int8, quantize_weight_ternary
 from .tokenize import ByteTokenizer
 from .vaked import compile_vaked, lower_graph
+from .zerocpu import (
+    CausalEdge,
+    PqError,
+    Prompt,
+    Report,
+    SpacetimeGraph,
+    apply_pq,
+    evolve,
+    parse_pq,
+)
 
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.20.0"
+    __version__ = "0.21.0"
 
 
 def tensor(data, requires_grad=False) -> Tensor:
@@ -114,4 +124,12 @@ __all__ = [
     "quantize_weight_ternary",
     "quantize_act_int8",
     "dequant",
+    "SpacetimeGraph",
+    "CausalEdge",
+    "Prompt",
+    "Report",
+    "PqError",
+    "parse_pq",
+    "apply_pq",
+    "evolve",
 ]

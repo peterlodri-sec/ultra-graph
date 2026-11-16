@@ -1,0 +1,8 @@
+block_of=0,0,0,0,2,1,1,2,1,1,2,2
+sizes=4,4,4
+densities=49152,0,4096,4096,16384,32768,0,36864,16384
+global=17749
+defect=31403
+concentration=1323008
+iterations=1
+super_edges=7

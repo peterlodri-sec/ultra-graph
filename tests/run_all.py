@@ -19,6 +19,7 @@ MODULES = [
     "test_attention",
     "test_advanced",
     "test_e2e",
+    "test_zerocpu",
 ]
 
 

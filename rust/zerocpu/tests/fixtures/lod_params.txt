@@ -1,0 +1,4 @@
+n=12
+k=3
+epsilon=0
+max_iters=8
