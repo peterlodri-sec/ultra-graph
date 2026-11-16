@@ -51,7 +51,7 @@ from .zerocpu import (
 try:
     __version__ = _pkg_version("ultragraph-1bit")
 except PackageNotFoundError:  # running from a source tree without install
-    __version__ = "0.21.0"
+    __version__ = "0.22.0"
 
 
 def tensor(data, requires_grad=False) -> Tensor:

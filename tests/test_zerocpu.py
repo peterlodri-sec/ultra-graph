@@ -595,3 +595,120 @@ def test_vaked_diamond_fixture_ticks_as_expected():
     )
     assert emit_mod.state_hex(g) == want["state"]
     assert emit_mod.pos_hex(g) == want["pos"]
+
+
+# -- Compiled p/q programs: .pqq ---------------------------------------------
+
+from ultragraph.zerocpu import (  # noqa: E402
+    PQQ_HEADER,
+    Resolved,
+    dump_pqq,
+    load_pqq,
+    resolve,
+    run_pqq,
+    write_bundle,
+)
+
+_PROG = """# vaked diamond: push time, then program the wiring
+step 2
+edge 1 3 +1
+flip 0 1
+set 2 -9 q 1/2
+prune 3 0 q 1/4
+step 1
+"""
+
+
+def _diamond():
+    from ultragraph.zerocpu import load_ugm
+
+    return load_ugm(_FIXTURES / "vaked_diamond.ugmz")
+
+
+def test_resolve_settles_the_same_draws_as_apply_pq():
+    direct, replayed = _diamond(), _diamond()
+    apply_pq(direct, _PROG, seed=7)
+    r = resolve(_PROG, seed=7)
+    run_pqq(replayed, dump_pqq(r))
+    assert (direct.state(), direct.tick_count, direct.n_edges) == (
+        replayed.state(),
+        replayed.tick_count,
+        replayed.n_edges,
+    )
+    assert len(r.accepted) + len(r.skipped) == 6
+    assert r.seed == 7
+    assert all(op.p == 1 and op.q == 1 for op in r.accepted)
+
+
+def test_resolve_is_reproducible_and_budget_is_respected():
+    a, b = resolve(_PROG, seed=7), resolve(_PROG, seed=7)
+    assert a == b
+    capped = resolve(_PROG, seed=7, budget=1)
+    assert len(capped.accepted) == 1
+    assert any("budget" in why for _, why in capped.skipped)
+    assert _raises(ValueError, resolve, _PROG, 0, -1)
+
+
+def test_dump_and_load_roundtrip():
+    r = resolve(_PROG, seed=7)
+    text = dump_pqq(r, nodes=4, edges=4, tick=0)
+    assert text.startswith(PQQ_HEADER + "\n")
+    assert [op.text() for op in load_pqq(text)] == [op.text() for op in r.accepted]
+    assert "# skip set 2 -9 q 1/2: rejected (1/2)" in text
+    assert Resolved() == Resolved()
+    assert load_pqq(dump_pqq(Resolved())) == load_pqq(PQQ_HEADER + "\n")
+
+
+def test_load_pqq_rejects_junk():
+    assert _raises(PqError, load_pqq, "")
+    assert _raises(PqError, load_pqq, "step 1")
+    assert _raises(PqError, load_pqq, "pqq 2\nstep 1")
+    assert _raises(PqError, load_pqq, "pqq 1\nset 1 2 q 1/2")
+    # the parser is syntax-only; target validity is an apply-time property
+    assert [op.text() for op in load_pqq("pqq 1\nedge 0 99 1")] == ["edge 0 99 1"]
+    # an uncompiled prompt has no header, so replaying it is a mistake, not a guess
+    assert _raises(PqError, run_pqq, _diamond(), _PROG)
+    assert _raises(PqError, run_pqq, _diamond(), "pqq 1\nedge 0 99 1")
+    assert _raises(PqError, run_pqq, _diamond(), "pqq 1\nflip 3 0")
+    assert _raises(PqError, run_pqq, _diamond(), "pqq 1\nwire a b")
+
+
+def test_write_bundle_emits_a_replayable_pair(tmp_path=None):
+    import tempfile
+    from pathlib import Path
+
+    from ultragraph.zerocpu import load_ugm
+
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp) / "diamond"
+        info = write_bundle(_diamond(), base, _PROG, seed=7)
+        assert info["applied"] == 4 and info["skipped"] == 2
+        ugmz, pqq = Path(info["ugmz"]), Path(info["pqq"])
+        assert ugmz.exists() and pqq.exists()
+
+        emitted = load_ugm(ugmz)
+        replayed = _diamond()
+        run_pqq(replayed, pqq.read_text())
+        assert emitted.state() == replayed.state()
+        assert emitted.tick_count == replayed.tick_count == 3
+
+
+def test_replay_fixture_is_stable():
+    """The committed .pqq and its expected state are what Python produces today."""
+    pqq = _FIXTURES / "replay.pqq"
+    if not pqq.exists():
+        return
+    expected = _FIXTURES / "replay.expected.txt"
+    g = _diamond()
+    apply_pq(g, _PROG, seed=7)
+    assert pqq.read_text() == dump_pqq(
+        resolve(_PROG, seed=7), nodes=4, edges=4, tick=0
+    )
+    assert expected.read_text() == (
+        f"state={emit_mod.state_hex(g)}\n"
+        f"pos={emit_mod.pos_hex(g)}\n"
+        f"tick={g.tick_count}\nedges={g.n_edges}\n"
+    )
+    again = _diamond()
+    run_pqq(again, pqq.read_text())
+    assert emit_mod.state_hex(again) == expected.read_text().split("state=")[1][:8]

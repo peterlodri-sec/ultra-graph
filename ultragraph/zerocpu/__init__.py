@@ -14,6 +14,8 @@ Three pieces that the float32 trainer and the int8 deployment path leave open:
   becomes a world, so a ``.vaked`` source can be compiled straight to ``.ugmz``.
 * :mod:`~ultragraph.zerocpu.lod` -- quasi-regular partitioning: the coarse graph
   that keeps a big world model tickable, with its defect reported, not assumed.
+* :mod:`~ultragraph.zerocpu.pqq` -- compile a `p/q` prompt (draws resolved) and
+  replay the result without a PRNG, in Python or in Rust.
 """
 
 from .emit import emit_ugm, from_bytes, load_ugm, to_bytes
@@ -35,6 +37,16 @@ from .fixed import (
     to_int,
 )
 from .lod import Partition, PartitionError, coarsen, density_stats, partition
+from .pqq import (
+    PQQ_HEADER,
+    PQQ_VERSION,
+    Resolved,
+    dump_pqq,
+    load_pqq,
+    resolve,
+    run_pqq,
+    write_bundle,
+)
 from .spacetime import INT8_MAX, INT8_MIN, CausalEdge, SpacetimeGraph
 from .vaked_bridge import (
     WorkflowError,
@@ -51,16 +63,20 @@ __all__ = [
     "INT8_MIN",
     "ONE",
     "Op",
+    "PQQ_HEADER",
+    "PQQ_VERSION",
     "Partition",
     "PartitionError",
     "PqError",
     "Prompt",
     "Report",
+    "Resolved",
     "SpacetimeGraph",
     "WorkflowError",
     "apply_pq",
     "coarsen",
     "density_stats",
+    "dump_pqq",
     "emit_ugm",
     "evolve",
     "from_bytes",
@@ -73,9 +89,12 @@ __all__ = [
     "fx_sqrt",
     "fx_sub",
     "load_ugm",
+    "load_pqq",
     "lower_vaked",
     "parse_pq",
     "partition",
+    "resolve",
+    "run_pqq",
     "saturate",
     "to_bytes",
     "to_float",
@@ -84,4 +103,5 @@ __all__ = [
     "vaked_to_ugm",
     "workflow_meta",
     "workflow_to_graph",
+    "write_bundle",
 ]

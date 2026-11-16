@@ -240,14 +240,27 @@ p = partition(3, [(0, 1), (1, 2), (2, 0)], k=1)
 | `zerocpu/emit.py` | `UGMZ` artifact v1 — 32-byte header, 24-byte node/edge records, little-endian, byte-stable |
 | `zerocpu/vaked_bridge.py` | lowered `.vaked` workflow → world → `.ugmz` (set `VAKED_ROOT` to a working `vakedc`) |
 | `zerocpu/lod.py` | quasi-regular partitioning: maximises structure, *reports* residual defect instead of claiming regularity |
-| `rust/zerocpu/` | the same kernels in Rust (NEON on aarch64) + a `world` binary that ticks a `.ugmz` |
+| `zerocpu/pqq.py` | compiled `.pqq` programs: rational draws settled once at compile time, replayed with no PRNG |
+| `rust/zerocpu/` | the same kernels in Rust (NEON on aarch64) + `world` (tick a `.ugmz`) and `replay` (apply a `.pqq`) binaries |
 
 Parity is pinned by golden fixtures, so the Python and Rust halves cannot drift apart
 silently: `cargo test` replays the committed `.ugmz` artifacts and LOD partitions that
 the Python suite regenerates.
 
+A `p/q` prompt can be frozen into a `.pqq` program that any interpreter replays
+without a random source — the draw is a compile-time choice, the artifact records it:
+
+```python
+from ultragraph.zerocpu import resolve, dump_pqq, write_bundle
+
+write_bundle(g, "diamond", "step 2\nedge 1 3 +1\nset 2 -9 q 1/2", seed=7)  # -> diamond.ugmz + diamond.pqq
+print(dump_pqq(resolve("step 3\nedge 0 1 +1", seed=7)))                    # auditable, seed-free text
+```
+
 ```sh
-cargo run --manifest-path rust/zerocpu/Cargo.toml -- rust/zerocpu/tests/fixtures/world.ugmz 3
+cargo run --manifest-path rust/zerocpu/Cargo.toml --bin world  -- rust/zerocpu/tests/fixtures/world.ugmz 3
+cargo run --manifest-path rust/zerocpu/Cargo.toml --bin replay -- rust/zerocpu/tests/fixtures/vaked_diamond.ugmz \
+    rust/zerocpu/tests/fixtures/replay.pqq                                          # state=0e1c387f tick=3 edges=5
 ```
 
 ### Published kernels on [g8t.is](https://g8t.is)

@@ -12,12 +12,16 @@
 //! * [`neon`] -- the aarch64 accelerated dot product (scalar fallback elsewhere).
 //! * [`lod`] -- quasi-regular partitioning: the level-of-detail compressor that
 //!   keeps a large world model tickable.
+//! * [`world`] -- the `UGMZ` artifact: parse, tick, mutate, write back.
+//! * [`pqq`] -- compiled `.pqq` programs replayed against a [`world::World`].
 //!
 //! No floating point is used in any deterministic path.
 
 pub mod fixed;
 pub mod lod;
+pub mod pqq;
 pub mod ternary;
+pub mod world;
 
 #[cfg(target_arch = "aarch64")]
 pub mod neon;
@@ -27,4 +31,6 @@ pub use fixed::{
     to_float, to_int, FRAC_BITS, ONE,
 };
 pub use lod::{coarsen, partition, seed_order, LodError, Partition};
+pub use pqq::{PqError, Report};
+pub use world::{Edge, World, WorldError};
 pub use ternary::{dot_i8, dot_i8_scalar, dot_ternary, pack5, unpack5, TRITS_PER_BYTE};

@@ -4,6 +4,27 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.22.0] — 2026-11-16
+
+### Added
+- `ultragraph.zerocpu.pqq` — `.pqq` compiled-program artifacts: `resolve()` settles every
+  `q P/Q` draw once (compile time), `dump_pqq()`/`load_pqq()` round-trip the text, and
+  `run_pqq()` replays it with no PRNG, no seed, and per-line error reporting.
+  `write_bundle()` emits the `.ugmz` + `.pqq` pair from one prompt.
+- Rust `zerocpu::world` — the `UGMZ` v1 parser/writer, `tick`/`tick_n`, and the same
+  edit semantics as `SpacetimeGraph` (`add_edge`, `flip`, `prune`, `set`).
+- Rust `zerocpu::pqq` — `parse`/`run` for compiled programs, rejecting unresolved draws.
+- `replay` binary (`replay <world.ugmz> <prog.pqq> [out.ugmz]`); `world` binary now
+  shares the library parser instead of carrying its own copy.
+- Cross-language replay fixture (`replay.pqq` + `replay.expected.txt`): Rust replays the
+  program to byte-identical state, tick count and edge count as Python.
+
+### Notes
+- `.pqq` deliberately carries outcomes, not a seed: reproducing CPython's MT19937 draw
+  order in another language would be a drifting surface. Compile-time resolution keeps
+  replay a literal transcription — the property worth guaranteeing.
+- Apply-time failures now surface as `PqError` with the offending line, in both languages.
+
 ## [0.21.0] — 2026-11-15
 
 Deterministic compute with a Rust twin: every number produced by this release is
