@@ -44,6 +44,9 @@ pub enum ObserverError {
     BadDecay,
     /// A half-life of zero ticks has no meaning.
     BadHalfLife,
+    /// A frame with `rate_q16 == 0` reads the same local tick forever, so
+    /// recovering a world tick from its reading is not possible.
+    FrozenClock,
 }
 
 impl fmt::Display for ObserverError {
@@ -53,6 +56,7 @@ impl fmt::Display for ObserverError {
             Self::NegativeSpan => "span must be non-negative",
             Self::BadDecay => "decay_q16 must be within [0, RATE_ONE]",
             Self::BadHalfLife => "half_life_ticks must be positive",
+            Self::FrozenClock => "a frame with rate_q16 == 0 has no invertible clock",
         };
         f.write_str(text)
     }
@@ -122,7 +126,12 @@ pub fn decay_pade(variance_q16: i64, elapsed: i64, half_life_ticks: i64) -> Resu
     if elapsed <= 0 {
         return Ok(variance_q16);
     }
-    let amplitude = pade_exp_neg((elapsed << 16) / half_life_ticks);
+    // `elapsed << 16` wraps for astronomical elapsed values and would flip the
+    // sign of the scale, reporting "barely decayed" for a band that has aged
+    // out entirely. Widen, then clamp to the Padé domain's top: fully decayed.
+    let x_q16 = ((elapsed as i128) << 16) / (half_life_ticks as i128);
+    let x_q16 = x_q16.min(PADE_X_MAX as i128) as i64;
+    let amplitude = pade_exp_neg(x_q16);
     Ok((variance_q16 * amplitude) >> 16)
 }
 
@@ -162,6 +171,31 @@ impl ObserverFrame {
     /// This frame's reading at `world_tick` (floor division, exact).
     pub fn local_time(&self, world_tick: i64) -> i64 {
         ((world_tick - self.origin_world) * self.rate_q16) >> 16
+    }
+
+    /// The earliest world tick whose reading is `local_tick`.
+    ///
+    /// Precisely: the smallest world tick whose reading is at least
+    /// `local_tick` (ceiling division, so it works for negative ticks too).
+    /// For a reading that actually happened this is exact.  A fast clock steps
+    /// by more than one local tick per world tick, so some local integers are
+    /// never read at all; for those the answer reads *past* the request, which
+    /// is detectable: `local_time(world_of(l)) != l` means `l` was never a
+    /// reading.
+    ///
+    /// That lossiness is why the mesh carries **world ticks, not readings**.
+    /// A peer needs the tick and its own frame; asking it to invert somebody
+    /// else's rounded reading is how two nodes drift apart with no one to
+    /// blame.  A frozen frame has no earliest tick at all, so this refuses
+    /// rather than inventing one.
+    pub fn world_of(&self, local_tick: i64) -> Result<i64, ObserverError> {
+        if self.rate_q16 <= 0 {
+            return Err(ObserverError::FrozenClock);
+        }
+        // Ceiling division: the smallest tick that *reaches* the reading.
+        let span = local_tick * RATE_ONE;
+        let step = span + self.rate_q16 - 1;
+        Ok(self.origin_world + step.div_euclid(self.rate_q16))
     }
 
     /// Read the clock and store it as the current local tick.

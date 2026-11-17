@@ -4,6 +4,43 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.28.0] — 2026-11-16
+
+### Added
+- `ObserverFrame.world_of(local_tick)` — the smallest world tick whose reading
+  is at least `local_tick` (ceiling division, so negative ticks work). Exact
+  for readings that actually happened; a reading that never happened is
+  detectable, because it answers with a tick that reads past it. A frozen frame
+  (`rate_q16 == 0`) refuses with `ObserverError::FrozenClock` rather than
+  inventing a tick.
+- `RingMemNet.variance_world` / `consensus_world` — the rate-free path. Decay
+  consumes world ticks only, so two nodes at the same world tick compute the
+  same integer offline, with no clock authority anywhere. `local_variance`
+  keeps the rate-scaled reading under a name that cannot be mistaken for a
+  verdict.
+- `examples/world_vs_tick.rs` — closed form versus a per-tick decay loop over a
+  full 64-slot ring: **137×** slower at `now=400`, **1650×** at 4000, **5337×**
+  at 40000, and the loop drifts **-4.8% … -6.4%** against the closed form
+  because it rounds every tick.
+- `tests/test_sync.py` (12 tests) and `[world]` / `[world_of]` fixture sections
+  with Rust parity, so the contract is pinned on both sides.
+
+### Fixed
+- `decay_pade` and `RingMemNet::variance` wrapped on astronomical `elapsed`:
+  `elapsed << 16` flipped sign and reported "barely decayed" for a band that
+  had aged out completely. Now widened to `i128`, clamped to the Padé domain,
+  and pinned by two fixture rows. The Python side was already correct (big
+  ints), which is why the fixtures had never caught it.
+
+### Not copied from the source sketch
+- The `active_mask` / `anchor_mask` bitmask. It optimises a per-tick loop, and
+  the measured cost of having that loop at all is 137×–5337× plus 5–6% drift.
+  A mask can remove work *from* the loop; it cannot make the loop shorter than
+  not having it. The anchor skip it was reaching for is already a branch.
+- `verdict()` returning `+1` whenever any anchor is active. Replaced by
+  `consensus_world`, the sign of the weighted sum: an anchor that has been
+  outvoted contributes its amplitude and still loses.
+
 ## [0.27.0] — 2026-11-16
 
 ### Added

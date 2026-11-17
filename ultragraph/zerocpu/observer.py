@@ -174,6 +174,27 @@ class ObserverFrame:
         """This frame's clock reading at ``world_tick`` (floor division, exact)."""
         return ((world_tick - self.origin_world) * self.rate_q16) // RATE_ONE
 
+    def world_of(self, local_tick: int) -> int:
+        """The earliest world tick whose reading is ``local_tick``.
+
+        Precisely: the smallest world tick whose reading is at least
+        ``local_tick`` (ceiling division, so it works for negative ticks too).
+        For a reading that actually happened this is exact.  A fast clock steps
+        by more than one local tick per world tick, so some local integers are
+        never read at all; for those the answer reads *past* the request, which
+        is detectable: ``local_time(world_of(l)) != l`` means ``l`` was never a
+        reading.
+
+        That lossiness is why the mesh carries **world ticks, not readings**.
+        A peer needs the tick and its own frame; asking it to invert somebody
+        else's rounded reading is how two nodes drift apart with no one to
+        blame.  A frozen frame (``rate_q16 == 0``) has no earliest tick at all,
+        so this refuses rather than inventing one.
+        """
+        if self.rate_q16 <= 0:
+            raise ValueError("a frame with rate_q16 == 0 has no invertible clock")
+        return self.origin_world + (local_tick * RATE_ONE + self.rate_q16 - 1) // self.rate_q16
+
     def observe(self, world_tick: int) -> int:
         """Read the clock and store it as the frame's current local tick."""
         self.local_tick = self.local_time(world_tick)

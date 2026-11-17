@@ -157,6 +157,16 @@ def main(argv: list[str]) -> int:
         f" guard={tnand(1, 1):+d}/{tnand(-1, 1):+d}"
     )
 
+    fast = ObserverFrame("fast", rate_q16=RATE_ONE)
+    slow = ObserverFrame("slow", rate_q16=(RATE_ONE * 3) // 4)
+    print(
+        f"\n[8] world    var_world={ring.variance_world(4000, 10)}"
+        f" verdict={ring.consensus_world(4000, 10):+d}"
+        f" local_fast={ring.local_variance(fast, 4000, 10)}"
+        f" local_slow={ring.local_variance(slow, 4000, 10)}"
+        f" (agreement is the rate-free column; the local ones differ on purpose)"
+    )
+
     print(
         f"\ndigest route={route_name(decision)} trits={_compact(trits)}"
         f" parity=0x{parity:04x} state=0x{emit.state_hex(world)}"

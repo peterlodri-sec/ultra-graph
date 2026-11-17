@@ -1,5 +1,6 @@
 //! Parity: `zerocpu::memnet` against the golden vectors from the Python reference.
 
+use zerocpu::observer::{ObserverError, ObserverFrame};
 use zerocpu::memnet::{MemNet, RingMemNet};
 
 const VECTORS: &str = include_str!("fixtures/memnet_vectors.txt");
@@ -55,6 +56,37 @@ fn matches_python_bit_for_bit() {
                     other => panic!("unknown ring expectation {other:?}"),
                 }
             }
+            "[world]" => {
+                let f: Vec<&str> = raw.split_whitespace().collect();
+                assert_eq!(f.len(), 7, "world row needs 7 fields: {raw}");
+                let now: i64 = f[1].parse().unwrap();
+                let half: i64 = f[2].parse().unwrap();
+                let expected_world: i64 = f[3].parse().unwrap();
+                let expected_trit: i8 = f[4].parse().unwrap();
+                let rate: i64 = f[5].parse().unwrap();
+                let expected_local: i64 = f[6].parse().unwrap();
+
+                assert_eq!(ring.variance_world(now, half).unwrap(), expected_world, "{raw}");
+                assert_eq!(ring.consensus_world(now, half).unwrap(), expected_trit, "{raw}");
+                let frame = ObserverFrame::new("fixture", 0, rate).unwrap();
+            assert_eq!(ring.local_variance(&frame, now, half).unwrap(), expected_local, "{raw}");
+        }
+            "[world_of]" => {
+                let f: Vec<&str> = raw.split_whitespace().collect();
+                assert_eq!(f.len(), 4, "world_of row needs 4 fields: {raw}");
+                let origin: i64 = f[0].parse().unwrap();
+                let local: i64 = f[1].parse().unwrap();
+                let rate: i64 = f[2].parse().unwrap();
+                let frame = ObserverFrame::new("fixture", origin, rate).unwrap();
+                if f[3] == "ERR" {
+                    assert_eq!(frame.world_of(local), Err(ObserverError::FrozenClock), "{raw}");
+                } else {
+                    let expected: i64 = f[3].parse().unwrap();
+                    assert_eq!(frame.world_of(local).unwrap(), expected, "{raw}");
+                    // round trip: world_of(local_time(t)) == t
+                assert_eq!(frame.world_of(frame.local_time(expected)).unwrap(), expected, "{raw}");
+            }
+        }
             other => panic!("unknown section {other:?}"),
         }
     }

@@ -64,3 +64,8 @@ None of these guards are named here. |
 655360 1000000000 10 0
 65536 5 7 32082
 196608 1 1 72327
+# astronomically old: must read 0, not "barely decayed" (an i64 shift would wrap)
+131072 9000000000000 10 0
+-131072 9000000000000 10 0
+# negative elapsed is "not yet": unchanged, sign preserved
+131072 -5 10 131072

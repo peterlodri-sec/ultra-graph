@@ -330,7 +330,9 @@ impl RingMemNet {
                 if elapsed <= 0 {
                     RATE_ONE
                 } else {
-                    pade_exp_neg((elapsed << 16) / half_life_ticks)
+                    let x = (((elapsed as i128) << 16) / (half_life_ticks as i128))
+                        .min(crate::observer::PADE_X_MAX as i128) as i64;
+                    pade_exp_neg(x)
                 }
             };
             let term = (slot.amp_q16 * amplitude) >> 16;
@@ -343,6 +345,44 @@ impl RingMemNet {
     pub fn consensus(&self, now: i64, half_life_ticks: i64, rate_q16: i64) -> Result<i8, ObserverError> {
         let total = self.variance(now, half_life_ticks, rate_q16)?;
         Ok(crate::trit::trit_of(total))
+    }
+
+    /// `E_v0[t]` with **no** rate scaling: the number every node agrees on.
+    ///
+    /// `variance` multiplies by an observer's `rate_q16` -- correct for a local
+    /// reading, fatal for a verdict, because two frames with different rates
+    /// would then disagree about the same band at the same world tick and no
+    /// amount of message exchange could reconcile them.  Consensus therefore
+    /// consumes world ticks only; a frame may relabel a tick, it may not change
+    /// how much of it has passed.
+    ///
+    /// Consequence worth stating plainly: there is nothing to synchronise.
+    /// Two nodes that exchange a world tick and a half-life compute the same
+    /// integer on both sides, offline, with no clock authority anywhere.
+    pub fn variance_world(&self, now_world: i64, half_life_ticks: i64) -> Result<i64, ObserverError> {
+        self.variance(now_world, half_life_ticks, RATE_ONE)
+    }
+
+    /// The settled trit, +1 / 0 / -1, from `variance_world`.
+    ///
+    /// The sign of the weighted sum -- not "is any anchor alive".  An anchor
+    /// that has been outvoted contributes its amplitude and still loses.
+    pub fn consensus_world(&self, now_world: i64, half_life_ticks: i64) -> Result<i8, ObserverError> {
+        Ok(crate::trit::trit_of(self.variance_world(now_world, half_life_ticks)?))
+    }
+
+    /// This observer's private reading: `variance` scaled by its own rate.
+    ///
+    /// Legitimate for display ("time runs fast here"), never for agreement.
+    /// Kept a separate method so the rate cannot be passed by accident to a
+    /// path that then calls itself consensus.
+    pub fn local_variance(
+        &self,
+        frame: &crate::observer::ObserverFrame,
+        now_world: i64,
+        half_life_ticks: i64,
+    ) -> Result<i64, ObserverError> {
+        self.variance(now_world, half_life_ticks, frame.rate_q16)
     }
 
     /// Number of stored slots.

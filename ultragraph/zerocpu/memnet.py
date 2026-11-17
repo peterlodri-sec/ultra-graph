@@ -248,8 +248,49 @@ class RingMemNet:
             total += (term * rate) >> 16
         return total
 
+    def variance_world(self, now_world: int, half_life_ticks: int) -> int:
+        """``E_v0[t]`` with **no** rate scaling: the number every node agrees on.
+
+        `variance` multiplies by an observer's ``rate_q16`` -- correct for a
+        local reading, fatal for a verdict, because two frames with different
+        rates would then disagree about the same band at the same world tick and
+        no amount of message exchange could reconcile them.  Consensus therefore
+        consumes **world ticks only**; a frame may relabel a tick, it may not
+        change how much of it has passed.
+
+        Consequence worth stating plainly: there is nothing to synchronise.
+        Two nodes that exchange a world tick and a half-life compute the same
+        integer on both sides, offline, with no clock authority anywhere.
+        """
+        from .observer import RATE_ONE
+
+        return self.variance(now_world, half_life_ticks, RATE_ONE)
+
+    def consensus_world(self, now_world: int, half_life_ticks: int) -> int:
+        """The settled trit, ``+1`` / ``0`` / ``-1``, from `variance_world`.
+
+        The sign of the weighted sum -- not "is any anchor alive".  An anchor
+        that has been outvoted contributes its amplitude and still loses.
+        """
+        total = self.variance_world(now_world, half_life_ticks)
+        return (total > 0) - (total < 0)
+
+    def local_variance(
+        self, frame, now_world: int, half_life_ticks: int
+    ) -> int:
+        """This observer's private reading: `variance` scaled by its own rate.
+
+        Legitimate for display ("time runs fast here"), never for agreement.
+        Kept a separate method so the rate cannot be passed by accident to a
+        path that then calls itself consensus.
+        """
+        return self.variance(now_world, half_life_ticks, frame.rate_q16)
+
     def consensus(self, now: int, half_life_ticks: int, rate_q16: int | None = None) -> int:
-        """The settled trit: ``+1``, ``0`` or ``-1`` from the current variance."""
+        """The settled trit: ``+1``, ``0`` or ``-1`` from the current variance.
+
+        Prefer `consensus_world` when the answer must be the same on every node.
+        """
         total = self.variance(now, half_life_ticks, rate_q16)
         return (total > 0) - (total < 0)
 
