@@ -244,6 +244,7 @@ p = partition(3, [(0, 1), (1, 2), (2, 0)], k=1)
 | `zerocpu/hope.py` | text → integer heat per lane → seeded world → tick → observer collapse; no floats, no keyword tables |
 | `zerocpu/trit.py` | Q-delta ternary quantizer (`A6P-15A`) + 16-plane bit layout that pops straight into NEON; `quantize`, `bitplanes`, `plane_parity` |
 | `zerocpu/router.py` | integer route selection — kernel / batch / model / plugin / deny — from position-weighted heat; `explain()` shows the counts, not the mood |
+| `zerocpu/meshd.py` | the socket path around `mesh.py`: `MeshListener` (loopback by default), `announce()`, and a `python -m` CLI — the Python twin of `bin/peers.rs` |
 | `zerocpu/memnet.py` | sequence-ordered associative memory (`(seq, value)` beats wall-clock): commutative, associative, idempotent merge, plus `RingMemNet` — a fixed 64-slot ring with decaying amplitudes and anchors that never fade |
 | `zerocpu/mesh.py` | LAN peer announce frame (`UGRD` v1, 12-byte fixed header + 32-byte name) and its byte-stable merge |
 | `zerocpu/observer.py` | local clocks (`(tick - origin) * rate >> 16`), bounded integer decay, the closed-form Padé `e^-x`, the Mahakala guard, and anchored memory that never fades |

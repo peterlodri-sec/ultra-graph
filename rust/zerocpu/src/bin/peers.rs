@@ -6,9 +6,13 @@
 //! CI -- it needs a network and a broadcast-capable interface.
 //!
 //! ```text
-//! peers announce <name> [port] [seconds]
-//! peers listen   [port] [seconds]
+//! peers announce <name> [port] [seconds] [destination]
+//! peers listen   [port] [seconds]    [bind]
 //! ```
+//!
+//! Both default to broadcast / `0.0.0.0` for a real LAN, but either can be
+//! pointed at `127.0.0.1` for a loopback run.  The protocol itself is covered by
+//! `tests/mesh_socket.rs`, which does exactly that and therefore runs in CI.
 
 use std::env;
 use std::net::UdpSocket;
@@ -18,9 +22,13 @@ use std::time::{Duration, Instant};
 use zerocpu::mesh::{merge_peers, pack_announce, parse_announce, Peer, PROTO_PORT};
 
 fn usage() -> ! {
-    eprintln!("usage: peers announce <name> [port] [seconds]");
-    eprintln!("       peers listen [port] [seconds]");
+    eprintln!("usage: peers announce <name> [port] [seconds] [destination]");
+    eprintln!("       peers listen [port] [seconds] [bind]");
     std::process::exit(2)
+}
+
+fn text(args: &[String], index: usize, fallback: &str) -> String {
+    args.get(index).cloned().unwrap_or_else(|| fallback.to_string())
 }
 
 fn argument(args: &[String], index: usize) -> Option<u16> {
@@ -41,6 +49,7 @@ fn announce(args: &[String]) {
     let name = args.get(1).cloned().unwrap_or_else(|| usage());
     let port = argument(args, 2).unwrap_or(PROTO_PORT);
     let seconds = u64::from(argument(args, 3).unwrap_or(3));
+    let destination = text(args, 4, "255.255.255.255");
     let frame = match pack_announce(&name, port, 0) {
         Ok(frame) => frame,
         Err(err) => {
@@ -57,7 +66,7 @@ fn announce(args: &[String]) {
         std::process::exit(1);
     }
     for _ in 0..seconds {
-        match socket.send_to(&frame, ("255.255.255.255", port)) {
+        match socket.send_to(&frame, (destination.as_str(), port)) {
             Ok(sent) => println!("announced {name} on {port} ({sent}B)"),
             Err(err) => {
                 eprintln!("peers: send: {err}");
@@ -71,9 +80,10 @@ fn announce(args: &[String]) {
 fn listen(args: &[String]) {
     let wanted = argument(args, 1).unwrap_or(PROTO_PORT);
     let seconds = u64::from(argument(args, 2).unwrap_or(10));
+    let bind = text(args, 3, "0.0.0.0");
     let mut port = wanted;
     let socket = loop {
-        match UdpSocket::bind(("0.0.0.0", port)) {
+        match UdpSocket::bind((bind.as_str(), port)) {
             Ok(socket) => break socket,
             Err(err) if port < u16::MAX => {
                 eprintln!("peers: {port} busy ({err}), trying {}", port + 1);

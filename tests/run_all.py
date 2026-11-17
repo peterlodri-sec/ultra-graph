@@ -21,6 +21,7 @@ MODULES = [
     "test_e2e",
     "test_memnet",
     "test_mesh",
+    "test_mesh_socket",
     "test_observer",
     "test_router",
     "test_trit",

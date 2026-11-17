@@ -4,6 +4,30 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.27.0] — 2026-11-16
+
+### Added
+- `ultragraph.zerocpu.meshd` — the socket path around `mesh.py`: `MeshListener`
+  (bound loopback by default, ephemeral port by default), `announce()`,
+  `poll()`, `listen()`, and `counts` for accepted vs rejected datagrams. The
+  Python twin of `bin/peers.rs`; not re-exported from the package root, because
+  a socket is runtime, not a deterministic primitive.
+- `tests/mesh_socket.rs` — a real `sendto`/`recvfrom` round trip on
+  `127.0.0.1:0`, so the announce frame is now pinned end-to-end in CI instead of
+  only as bytes. Junk datagrams are asserted refused, not merged.
+- `bin/peers.rs` gained optional destination (`announce`) and bind (`listen`)
+  arguments, so a loopback run no longer means editing the source.
+- `tests/test_mesh_socket.py` — six tests including a subprocess CLI run.
+
+### Not copied from the source sketch
+- An x86 `asm!` decay block: this tree targets aarch64, `shrd` is a *logical*
+  shift, `i32` would break Q16.16 parity with Python, and `(v * 62339) >> 16`
+  already compiles to two instructions — the asm is slower, unportable and
+  unchecked. `decay_q16` stays a plain `i64` function.
+- `assert!` on a zero denominator inside a `Fraction::new`: a panic in Rust is a
+  process death, not a refusal, and an *empty* ledger has no ratio to report at
+  all. This repo keeps the "no claim" case as a total function.
+
 ## [0.26.0] — 2026-11-16
 
 ### Added
