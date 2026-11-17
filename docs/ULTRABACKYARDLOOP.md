@@ -57,6 +57,7 @@ cd rust/zerocpu
 cargo run --release --example world_vs_tick     # closed form vs per-tick loop
 cargo run --release --example variance_slots    # sparse ring read cost
 cargo run --release --example decay_x_cost      # wide vs hybrid vs naive divide
+cargo run --release --example dot_i8_bench      # scalar vs NEON vs DotProd
 ```
 
 **`world_vs_tick`** — why the ring is closed-form and carries no bitmasks. A
@@ -86,6 +87,21 @@ hold. Lap 9 replaced the branch-over-64 scan with an index array:
 
 Every `sink` value is identical before and after: the answer did not change,
 only the amount of work spent producing it.
+
+**`dot_i8_bench`** — which int8 dot kernel to ship. The hand-written NEON
+intrinsics were the *slow* option on this machine:
+
+| lanes | scalar | hand-written NEON | shipped (DotProd) |
+|---:|---:|---:|---:|
+| 16 | 3.71 ns | 2.90 ns | **2.48 ns** |
+| 64 | 7.81 ns | 4.50 ns | **4.52 ns** |
+| 256 | 24.96 ns | 11.81 ns | **9.40 ns** |
+| 4096 | 377.31 ns | 490.27 ns | **227.69 ns** |
+
+At 4096 lanes the intrinsics lost to LLVM's auto-vectorised scalar loop. The
+dispatcher is now: DotProd when `has_dotprod()`, else scalar. The intrinsics are
+kept compiled and tested but off the dispatch path, so the comparison stays
+reproducible instead of becoming folklore.
 
 ## 3. Wire
 
@@ -192,7 +208,8 @@ cycles/op**, same output digest, crown retained.
 | 9 | `05d9e19` | 0.30.0 | skip empty slots when reading the ring (10.1× at one slot) |
 | 10 | `ac7d26b` | 0.30.1 | refuse a non-loopback bind unless the caller means it |
 | 11 | `c77e670` | 0.31.0 | pin the wiring: every twin, every export, every layer |
-| 12 | see ledger | 0.32.0 | `decay_x`: no 128-bit divide on the ring's hot path |
+| 12 | `a1a9785` | 0.32.0 | `decay_x`: no 128-bit divide on the ring's hot path |
+| 13 | `ff460cd` | 0.33.0 | dispatch the int8 dot to ARMv8.2 DotProd |
 
 ---
 
