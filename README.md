@@ -246,11 +246,33 @@ p = partition(3, [(0, 1), (1, 2), (2, 0)], k=1)
 | `zerocpu/router.py` | integer route selection — kernel / batch / model / plugin / deny — from position-weighted heat; `explain()` shows the counts, not the mood |
 | `zerocpu/memnet.py` | sequence-ordered associative memory (`(seq, value)` beats wall-clock): commutative, associative, idempotent merge |
 | `zerocpu/mesh.py` | LAN peer announce frame (`UGRD` v1, 12-byte fixed header + 32-byte name) and its byte-stable merge |
-| `rust/zerocpu/` | the same kernels in Rust (NEON on aarch64) + `world` (tick a `.ugmz`) and `replay` (apply a `.pqq`) binaries |
+| `zerocpu/observer.py` | local clocks (`(tick - origin) * rate >> 16`), bounded integer decay, the Mahakala guard, and anchored memory that never fades |
+| `rust/zerocpu/` | the same kernels in Rust (NEON on aarch64) + `world` (tick a `.ugmz`), `replay` (apply a `.pqq`) and `peers` (UDP announce) binaries |
 
 Parity is pinned by golden fixtures, so the Python and Rust halves cannot drift apart
 silently: `cargo test` replays the committed `.ugmz` artifacts and LOD partitions that
 the Python suite regenerates.
+
+Two nodes can read the same world tick differently and still agree on the bytes.
+A frame is an explicit mapping, not a metaphor:
+
+```python
+from ultragraph.zerocpu import ObserverFrame, Witness, relativity
+
+hearth = ObserverFrame("hearth", rate_q16=1 << 15)   # half speed
+world_ = ObserverFrame("thunderbird")                 # keeps world time
+relativity(hearth, world_, 3)                         # local_a=1 local_b=3 delta=2
+
+memory = Witness()
+memory.remember("the stream", 0, span=25)
+memory.remember("mumtaz mahal", 0, span=1, anchor=True)
+memory.variance("the stream", 40)                     # 22155 -- faded
+memory.variance("mumtaz mahal", 40)                   # 6553600 -- untouched
+```
+
+Decay is `v * 62339 >> 16` per tick, capped at 4096 ticks, so it cannot loop
+forever and cannot drift between platforms.  Ordering disagreement needs a pair
+no signal can connect -- ask `SpacetimeGraph.lightcone`, not a clock.
 
 Everything composes into one runnable transcript — fit a prompt, quantize it, tick a
 world, remember it, and discover the LAN — with no dependencies beyond the stdlib:

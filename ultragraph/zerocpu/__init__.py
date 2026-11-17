@@ -26,6 +26,10 @@ Three pieces that the float32 trainer and the int8 deployment path leave open:
   merges across nodes without a clock.
 * :mod:`~ultragraph.zerocpu.mesh` -- the LAN peer announce frame and its merge
   rule, byte-exact against the Rust twin.
+* :mod:`~ultragraph.zerocpu.observer` -- local clocks, the Mahakala guard, and
+  memory that anchors what must not fade.  Decay is a bounded integer
+  recurrence; ``relativity`` shows two frames disagreeing about "now" while
+  agreeing on the structure.
 """
 
 from .emit import emit_ugm, from_bytes, load_ugm, to_bytes
@@ -59,6 +63,20 @@ from .hope import (
 from .lod import Partition, PartitionError, coarsen, density_stats, partition
 from .memnet import MEMNET_SLOTS, MemNet, MemNetEntry, key_id
 from .mesh import Peer, merge_peers, pack_announce, parse_announce
+from .observer import (
+    ANCHOR_VARIANCE,
+    MAHAKALA_GUARDIANS,
+    MAX_DECAY_STEPS,
+    RATE_ONE,
+    VARIANCE_FLOOR,
+    Mahakala,
+    ObserverFrame,
+    Relativity,
+    Slot,
+    Witness,
+    relativity,
+)
+from .observer import decay as decay_variance
 from .pqq import (
     PQQ_HEADER,
     PQQ_VERSION,
@@ -103,17 +121,22 @@ from .vaked_bridge import (
 
 __all__ = [
     "A6P_LEVELS",
+    "ANCHOR_VARIANCE",
     "CausalEdge",
     "FRAC_BITS",
     "INT8_MAX",
     "INT8_MIN",
     "MAGNITUDE_MAX",
+    "MAHAKALA_GUARDIANS",
+    "MAX_DECAY_STEPS",
     "MAX_LANES",
     "MEMNET_SLOTS",
+    "Mahakala",
     "MemNet",
     "MemNetEntry",
     "ONE",
     "Observer",
+    "ObserverFrame",
     "Op",
     "PQQ_HEADER",
     "PQQ_VERSION",
@@ -122,22 +145,28 @@ __all__ = [
     "Peer",
     "PqError",
     "Prompt",
+    "RATE_ONE",
     "ROUTE_BATCH",
     "ROUTE_CAVEMAN",
     "ROUTE_DENY",
     "ROUTE_MODEL",
     "ROUTE_PLUGIN",
+    "Relativity",
     "Report",
     "Resolved",
     "Resonance",
     "SIGNAL_STEP",
     "Signal",
+    "Slot",
     "SpacetimeGraph",
+    "VARIANCE_FLOOR",
+    "Witness",
     "WorkflowError",
     "apply_pq",
     "bitplanes",
     "coarsen",
     "decay",
+    "decay_variance",
     "delta_for_level",
     "density_stats",
     "dump_pqq",
@@ -168,6 +197,7 @@ __all__ = [
     "plane_parity",
     "quantize",
     "quantize_many",
+    "relativity",
     "resolve",
     "resonate",
     "route",

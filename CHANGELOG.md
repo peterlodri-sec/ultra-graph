@@ -4,6 +4,39 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.25.0] — 2026-11-16
+
+### Added
+- `ultragraph.zerocpu.observer` + Rust `zerocpu::observer` — observer frames:
+  `local = (world_tick - origin_world) * rate_q16 >> 16`, exact and integer, so
+  two nodes can print different "now"s for one world tick and still agree on the
+  structure.  `relativity()` returns both readings and the delta.
+- `decay()` — the variance half-life, integer-only: `v * 62339 >> 16` per tick,
+  bounded to 4096 iterations, idempotent at a fixed tick.  `exp()` drifts
+  between platforms; a rational recurrence cannot.
+- `Mahakala` — a guard over a caller-supplied chain of names.  Whole-token,
+  case-insensitive, in chain order, and it reports what it matched: `"seasonal"`
+  does not summon `"son"`.
+- `Witness` — memory ranked by weight, with `anchor=True` for what must not fade.
+  Weight is recomputed from `(born_tick, world_tick)` instead of mutated in
+  place, so re-ticking a timeline cannot accumulate drift.
+- `examples/caveman_ultra_demo.py` gained step `[6]`: two frames, the guard, and
+  an anchor outliving a plain memory (163850 → 22155 while the anchor stays
+  6553600).
+- `observer_vectors.txt` + `tests/observer_parity.rs`; Python suite 198 tests,
+  Rust 66 across 13 binaries.  94 names exported from `ultragraph.zerocpu`.
+
+### Notes
+- No `ln()`-derived time dilation: a frame's rate is an explicit Q16.16 value the
+  caller sets.  Deriving it from the input's depth was the sketch's idea; it makes
+  the clock a function of the prompt, which is not a clock.
+- No keyword sniffing for monuments.  `Witness.remember(..., anchor=True)` makes
+  the caller declare meaning; a substring check would make `"Taj Mahal"` sacred
+  and every translation of it profane.
+- Ordering: with linear rates the order of two world ticks is frame independent —
+  only labels differ.  Genuine disagreement needs spacelike separation, which is
+  `SpacetimeGraph.lightcone`'s job.
+
 ## [0.24.0] — 2026-11-16
 
 ### Added

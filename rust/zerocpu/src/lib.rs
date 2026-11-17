@@ -19,6 +19,9 @@
 //! * [`router`] -- deterministic integer routing over prompt features.
 //! * [`memnet`] -- sequence-ordered associative memory (merge-safe).
 //! * [`mesh`] -- the LAN peer announce protocol.
+//! * [`trit`] -- the A6P-15A quantizer and its bitplanes.
+//! * [`router`] -- integer route selection.
+//! * [`observer`] -- local clocks, guard chain, anchored memory.
 //!
 //! No floating point is used in any deterministic path.
 
@@ -27,6 +30,7 @@ pub mod hope;
 pub mod lod;
 pub mod memnet;
 pub mod mesh;
+pub mod observer;
 pub mod pqq;
 pub mod router;
 pub mod ternary;

@@ -2,7 +2,8 @@
 
     python3 examples/caveman_ultra_demo.py "ultra backprop in ternary"
 
-Route -> quantize -> A6P-15A bitplanes -> world tick -> memory -> mesh.
+Route -> quantize -> A6P-15A bitplanes -> world tick -> memory -> mesh ->
+observer frames.
 
 Integer-only and deterministic: the same prompt produces the same transcript on
 every run, on every machine.  Nothing here calls a model, a network socket, or
@@ -20,6 +21,7 @@ if __package__ in (None, ""):  # allow `python3 examples/caveman_ultra_demo.py` 
 from ultragraph.zerocpu import emit, hope
 from ultragraph.zerocpu.memnet import MemNet
 from ultragraph.zerocpu.mesh import merge_peers, pack_announce, parse_announce
+from ultragraph.zerocpu.observer import Mahakala, ObserverFrame, Witness, relativity
 from ultragraph.zerocpu.router import explain, features, route, route_name
 from ultragraph.zerocpu.spacetime import SpacetimeGraph
 from ultragraph.zerocpu.trit import (
@@ -112,10 +114,33 @@ def main(argv: list[str]) -> int:
     names = ",".join(f"{p.name}:{p.port}@{p.seq}" for p in peers)
     print(f"\n[5] mesh     frame={frames[0].hex()} peers={names}")
 
+    # [6] Two frames read the same tick differently; the guard names its chain;
+    # a declared monument keeps its weight while a plain memory fades.
+    hearth = ObserverFrame("hearth", rate_q16=1 << 15)
+    thunderbird = ObserverFrame("thunderbird")
+    report = relativity(hearth, thunderbird, world.tick_count)
+    guard = Mahakala().raise_guard("Mother, father, son.")
+    memory = Witness()
+    memory.remember("the stream", 0, span=len(prompt))
+    memory.remember("mumtaz mahal", 0, span=1, anchor=True)
+    memory.remember("a whisper", 0, span=1)
+    print(
+        f"\n[6] frames   world={world.tick_count}"
+        f" hearth={report.local_a} thunderbird={report.local_b}"
+        f" delta={report.delta} guard={','.join(guard) or '-'}"
+    )
+    print(
+        f"    witness  plain {memory.variance('the stream', 0)}"
+        f" -> {memory.variance('the stream', 40)}"
+        f" | anchor {memory.variance('mumtaz mahal', 40)}"
+        f" | whisper {memory.variance('a whisper', 40)}"
+        f" | live={memory.tick(40)} of {len(memory)}"
+    )
+
     print(
         f"\ndigest route={route_name(decision)} trits={_compact(trits)}"
         f" parity=0x{parity:04x} state=0x{emit.state_hex(world)}"
-        f" mem={len(left)} peers={len(peers)}"
+        f" mem={len(left)} peers={len(peers)} delta={report.delta}"
     )
     return 0
 
