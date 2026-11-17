@@ -5,6 +5,10 @@ edition = "2021"
 publish = false
 description = "Deterministic integer kernels for ultragraph: Q16.16, 5-trit packing, NEON dot."
 
+# This crate is its own workspace root. Without this, cargo walks up and finds
+# an unrelated [workspace] in a parent repository and refuses to build.
+[workspace]
+
 [lib]
 name = "zerocpu"
 path = "src/lib.rs"
