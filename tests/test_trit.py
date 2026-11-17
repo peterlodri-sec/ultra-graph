@@ -1,0 +1,141 @@
+"""Tests for zerocpu.trit: Q-delta thresholds and A6P-15A bitplanes."""
+
+from ultragraph.zerocpu import trit
+from ultragraph.zerocpu.trit import (
+    A6P_LEVELS,
+    A6P_PLANES,
+    MAGNITUDE_MAX,
+    MAX_LANES,
+    bitplanes,
+    decay,
+    delta_for_level,
+    from_planes,
+    plane_parity,
+    quantize,
+    quantize_many,
+)
+
+
+def test_trit_module_imports():
+    assert trit.__doc__
+    assert trit.A6P_NAME == "A6P-15A"
+
+
+def test_delta_for_level_spans_the_full_range():
+    deltas = [delta_for_level(level) for level in range(A6P_LEVELS)]
+    assert deltas[0] == 1 << (A6P_LEVELS - 1)
+    assert deltas[-1] == 1
+    assert deltas == sorted(deltas, reverse=True)
+    assert len(set(deltas)) == A6P_LEVELS
+
+
+def test_delta_for_level_rejects_out_of_range():
+    for bad in (-1, A6P_LEVELS, 99):
+        try:
+            delta_for_level(bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"level {bad} should have raised")
+
+
+def test_quantize_boundaries():
+    assert quantize(16384, 16384) == 1
+    assert quantize(16383, 16384) == 0
+    assert quantize(-16384, 16384) == -1
+    assert quantize(-16383, 16384) == 0
+    assert quantize(0, 16384) == 0
+
+
+def test_quantize_zero_delta_keeps_silence_at_zero():
+    assert quantize(0, 0) == 0
+    assert quantize(1, 0) == 1
+    assert quantize(-1, 0) == -1
+
+
+def test_quantize_rejects_negative_delta():
+    try:
+        quantize(1, -1)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("negative delta should have raised")
+
+
+def test_quantize_many_is_quantize_per_lane():
+    values = [20000, -20000, 5, -5, 0]
+    assert quantize_many(values, 16384) == [1, -1, 0, 0, 0]
+
+
+def test_decay_halves_and_quarters_toward_zero():
+    assert decay(1000, 1) == 500
+    assert decay(1000, 2) == 750
+    assert decay(-1000, 1) == -500
+    assert decay(-1000, 2) == -750
+    assert decay(0, 3) == 0
+    assert decay(7, 1) == 4
+
+
+def test_decay_extremes_and_bad_shift():
+    assert decay(12345, 63) == 0
+    assert decay(-12345, 999) == 0
+    try:
+        decay(1, -1)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("negative shift should have raised")
+
+
+def test_bitplanes_shape_and_sign_plane():
+    planes = bitplanes([1, -1, 0])
+    assert len(planes) == A6P_PLANES
+    assert planes[0] == 0b011  # lanes 0 and 1 have magnitude bit 0
+    assert planes[A6P_LEVELS] == 0b010  # only lane 1 is negative
+    assert plane_parity(planes) == 0b001
+
+
+def test_bitplanes_saturate_and_pad():
+    planes = bitplanes([10**9, -10**9])
+    assert planes[A6P_LEVELS] == 0b10
+    assert from_planes(planes)[0] == MAGNITUDE_MAX
+    assert from_planes(planes)[1] == -MAGNITUDE_MAX
+    short = bitplanes([3])
+    padded = bitplanes([3] + [0] * (MAX_LANES - 1))
+    assert short[:] == padded[:]
+
+
+def test_bitplanes_rejects_too_many_lanes():
+    try:
+        bitplanes([0] * (MAX_LANES + 1))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("17 lanes should have raised")
+
+
+def test_bitplanes_round_trip():
+    values = [-32767, -1, 0, 1, 32767, -12345, 5432, 0, 1, -1, 2, -2, 3, -3, 4, -4]
+    planes = bitplanes(values)
+    assert len(planes) == A6P_PLANES
+    assert from_planes(planes) == values
+
+
+def test_from_planes_rejects_wrong_width():
+    try:
+        from_planes([0] * (A6P_PLANES - 1))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("short plane list should have raised")
+
+
+def test_from_planes_masks_high_bits():
+    planes = [0] * A6P_PLANES
+    planes[0] = 0xFFFF_FFFF
+    assert from_planes(planes)[0] == 1
+
+
+def test_plane_parity_is_a_16_bit_xor_fold():
+    planes = [0xFFFF, 0x0001] + [0] * (A6P_PLANES - 2)
+    assert plane_parity(planes) == 0xFFFE
+    assert plane_parity([0] * A6P_PLANES) == 0

@@ -18,6 +18,14 @@ Three pieces that the float32 trainer and the int8 deployment path leave open:
   replay the result without a PRNG, in Python or in Rust.
 * :mod:`~ultragraph.zerocpu.hope` -- project a text to integer heat, seed it into
   a world, tick, and collapse the state with an observer.
+* :mod:`~ultragraph.zerocpu.trit` -- the Q-delta ternary quantizer and the
+  A6P-15A bitplane layout: thresholds one way, popcount-ready planes the other.
+* :mod:`~ultragraph.zerocpu.router` -- deterministic integer routing: which
+  handler (kernel, batch, model, plugin) a prompt deserves, and why.
+* :mod:`~ultragraph.zerocpu.memnet` -- sequence-ordered associative memory that
+  merges across nodes without a clock.
+* :mod:`~ultragraph.zerocpu.mesh` -- the LAN peer announce frame and its merge
+  rule, byte-exact against the Rust twin.
 """
 
 from .emit import emit_ugm, from_bytes, load_ugm, to_bytes
@@ -49,6 +57,8 @@ from .hope import (
     signal,
 )
 from .lod import Partition, PartitionError, coarsen, density_stats, partition
+from .memnet import MEMNET_SLOTS, MemNet, MemNetEntry, key_id
+from .mesh import Peer, merge_peers, pack_announce, parse_announce
 from .pqq import (
     PQQ_HEADER,
     PQQ_VERSION,
@@ -59,7 +69,30 @@ from .pqq import (
     run_pqq,
     write_bundle,
 )
+from .router import (
+    ROUTE_BATCH,
+    ROUTE_CAVEMAN,
+    ROUTE_DENY,
+    ROUTE_MODEL,
+    ROUTE_PLUGIN,
+    explain,
+    features,
+    route,
+    route_name,
+)
 from .spacetime import INT8_MAX, INT8_MIN, CausalEdge, SpacetimeGraph
+from .trit import (
+    A6P_LEVELS,
+    MAGNITUDE_MAX,
+    MAX_LANES,
+    bitplanes,
+    decay,
+    delta_for_level,
+    from_planes,
+    plane_parity,
+    quantize,
+    quantize_many,
+)
 from .vaked_bridge import (
     WorkflowError,
     lower_vaked,
@@ -69,33 +102,51 @@ from .vaked_bridge import (
 )
 
 __all__ = [
+    "A6P_LEVELS",
     "CausalEdge",
     "FRAC_BITS",
     "INT8_MAX",
     "INT8_MIN",
+    "MAGNITUDE_MAX",
+    "MAX_LANES",
+    "MEMNET_SLOTS",
+    "MemNet",
+    "MemNetEntry",
     "ONE",
+    "Observer",
     "Op",
     "PQQ_HEADER",
     "PQQ_VERSION",
-    "SIGNAL_STEP",
-    "Signal",
-    "Observer",
     "Partition",
     "PartitionError",
+    "Peer",
     "PqError",
     "Prompt",
+    "ROUTE_BATCH",
+    "ROUTE_CAVEMAN",
+    "ROUTE_DENY",
+    "ROUTE_MODEL",
+    "ROUTE_PLUGIN",
     "Report",
-    "Resonance",
     "Resolved",
+    "Resonance",
+    "SIGNAL_STEP",
+    "Signal",
     "SpacetimeGraph",
     "WorkflowError",
     "apply_pq",
+    "bitplanes",
     "coarsen",
+    "decay",
+    "delta_for_level",
     "density_stats",
     "dump_pqq",
     "emit_ugm",
     "evolve",
+    "explain",
+    "features",
     "from_bytes",
+    "from_planes",
     "fx_add",
     "fx_dist",
     "fx_div",
@@ -104,14 +155,23 @@ __all__ = [
     "fx_mul",
     "fx_sqrt",
     "fx_sub",
-    "load_ugm",
+    "key_id",
     "load_pqq",
+    "load_ugm",
     "lower_vaked",
-    "parse_pq",
+    "merge_peers",
     "observer",
+    "pack_announce",
+    "parse_announce",
+    "parse_pq",
     "partition",
-    "resonate",
+    "plane_parity",
+    "quantize",
+    "quantize_many",
     "resolve",
+    "resonate",
+    "route",
+    "route_name",
     "run_pqq",
     "saturate",
     "seed_signal",

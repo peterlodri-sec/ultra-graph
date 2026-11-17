@@ -21,3 +21,6 @@ _bmad-output/
 skills/reports/
 _bmad/config.user.yaml
 .DS_Store
+
+# Deepwork session state
+.slim/deepwork/

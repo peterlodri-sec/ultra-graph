@@ -15,14 +15,22 @@
 //! * [`world`] -- the `UGMZ` artifact: parse, tick, mutate, write back.
 //! * [`pqq`] -- compiled `.pqq` programs replayed against a [`world::World`].
 //! * [`hope`] -- a text projected to integer heat, seeded into a world, ticked.
+//! * [`trit`] -- the Q-delta ternary quantizer and A6P-15A bitplanes.
+//! * [`router`] -- deterministic integer routing over prompt features.
+//! * [`memnet`] -- sequence-ordered associative memory (merge-safe).
+//! * [`mesh`] -- the LAN peer announce protocol.
 //!
 //! No floating point is used in any deterministic path.
 
 pub mod fixed;
 pub mod hope;
 pub mod lod;
+pub mod memnet;
+pub mod mesh;
 pub mod pqq;
+pub mod router;
 pub mod ternary;
+pub mod trit;
 pub mod world;
 
 #[cfg(target_arch = "aarch64")]

@@ -4,6 +4,43 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.24.0] — 2026-11-16
+
+### Added
+- `ultragraph.zerocpu.trit` + Rust `zerocpu::trit` — the `A6P-15A` quantizer: a
+  Q16.16 magnitude is thresholded against a 15-step delta ladder, and the result
+  is also emitted as 16 magnitude planes (`bitplanes` / `from_planes` /
+  `plane_parity`) so a trit vector is a popcount away from NEON. Levels, deltas
+  and planes are pinned by `trit_vectors.txt`.
+- `ultragraph.zerocpu.router` — deterministic route selection from six integer
+  counts plus **position-weighted** heat (`(ord*31 + i) * (i + 1)`), so `"ab"` and
+  `"ba"` are different prompts. Five routes, `explain()` for the reasoning, and a
+  `python3 -m ultragraph.zerocpu.router` JSON entry point.
+- `ultragraph.zerocpu.memnet` — 256-slot associative memory keyed by FNV-1a and
+  ranked by `(seq, value)`, never by clock: `merge` is commutative, associative
+  and idempotent, which is what lets two nodes sync without asking who is right.
+- `ultragraph.zerocpu.mesh` — `UGRD` v1 announce frame (`<4sBHIB`, 12-byte fixed
+  part, 32-byte UTF-8 name), a parser that returns `None` instead of raising, and
+  the peer merge rule. `bin/peers.rs` speaks it over UDP (stdlib only, not in CI).
+- `examples/caveman_ultra_demo.py` — one command: route → quantize → world tick →
+  memory merge/recall → mesh peers → digest.
+- Parity fixtures `trit_vectors.txt`, `router_vectors.txt`, `memnet_vectors.txt`,
+  `mesh_vectors.txt` generated from the Python modules, replayed by
+  `tests/{trit,router,memnet,mesh}_parity.rs`. Python suite: 181 tests; Rust: 59.
+- 82 names exported from `ultragraph.zerocpu`.
+
+### Notes
+- Heat is position-weighted on purpose: an order-blind hash made anagram prompts
+  collide, and a router that cannot tell `"ab"` from `"ba"` is not a router.
+- `memnet` ranks writes by sequence, not by timestamp: two nodes with unsynced
+  clocks must still agree after a merge.
+- Rust `router::features` counts `char`s, not bytes, to stay bit-identical with
+  Python on non-ASCII prompts.
+
+### Fixed
+- `mesh::merge_peers` keeps the incoming peer when `seq >= existing.seq`, matching
+  the Python rule exactly (tie goes to the announcer).
+
 ## [0.23.0] — 2026-11-16
 
 ### Added

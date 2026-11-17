@@ -19,6 +19,10 @@ MODULES = [
     "test_attention",
     "test_advanced",
     "test_e2e",
+    "test_memnet",
+    "test_mesh",
+    "test_router",
+    "test_trit",
     "test_zerocpu",
 ]
 
