@@ -49,7 +49,10 @@ fn fixed_dot_matches_python_golden() {
 fn fixed_rounding_is_symmetric_about_zero() {
     let m = fx_mul(from_ratio(3, 2), from_int(2));
     assert_eq!(m, fx_mul(from_ratio(-3, 2), from_int(-2)));
-    assert_eq!(fx_div(from_int(-1), from_int(3)), -fx_div(from_int(1), from_int(3)));
+    assert_eq!(
+        fx_div(from_int(-1), from_int(3)),
+        -fx_div(from_int(1), from_int(3))
+    );
 }
 
 #[test]

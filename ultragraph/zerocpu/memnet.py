@@ -189,10 +189,14 @@ class RingMemNet:
       walk that happened to run.
     """
 
-    __slots__ = ("_cursor", "_seq", "_slots")
+    __slots__ = ("_cursor", "_occupied", "_seq", "_slots")
 
     def __init__(self) -> None:
         self._slots: list[RingSlot | None] = [None] * MEMNET_RING
+        # Indices of the occupied slots, in the order they were first written.
+        # Reading a nearly empty ring then walks a handful of entries instead of
+        # branching over 64 empty ones.
+        self._occupied: list[int] = []
         self._cursor = 0
         self._seq = 0
 
@@ -204,6 +208,8 @@ class RingMemNet:
             index = (self._cursor + offset) % MEMNET_RING
             existing = self._slots[index]
             if existing is None or not existing.anchor:
+                if existing is None:
+                    self._occupied.append(index)
                 self._seq += 1
                 self._slots[index] = RingSlot(
                     id=self._seq,
@@ -234,7 +240,8 @@ class RingMemNet:
         if rate < 0:
             raise ValueError("rate_q16 must be non-negative")
         total = 0
-        for slot in self._slots:
+        for index in self._occupied:
+            slot = self._slots[index]
             if slot is None:
                 continue
             if slot.anchor:
@@ -295,4 +302,4 @@ class RingMemNet:
         return (total > 0) - (total < 0)
 
     def __len__(self) -> int:
-        return sum(1 for slot in self._slots if slot is not None)
+        return len(self._occupied)

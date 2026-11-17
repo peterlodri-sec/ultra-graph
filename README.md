@@ -369,6 +369,12 @@ examples/               char/gpt/mesh/anonymus/hungarian LMs, history graphs, co
 .devcontainer/          VS Code dev container (Python 3.14 + uv + ruff)
 ```
 
+The development loop is written down in
+[`docs/ULTRABACKYARDLOOP.md`](docs/ULTRABACKYARDLOOP.md) — reflect → improve →
+wire → polish → push → readme, with the gate a lap must pass and the two
+standing measurements (`world_vs_tick`, `variance_slots`). One machine-readable
+line per lap lives in [`docs/lap-ledger.jsonl`](docs/lap-ledger.jsonl).
+
 Design spec: `docs/superpowers/specs/2026-07-10-ultragraph-design.md`.
 Graph-theory reading list (Erdős classics): [`docs/references.md`](docs/references.md).
 

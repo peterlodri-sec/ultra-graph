@@ -41,7 +41,11 @@ fn matches_python_bit_for_bit() {
                     .map(str::to_string)
                     .collect();
                 assert_eq!(ours, expected, "{text:?}");
-                assert_eq!(guard.protects(text.trim()), !expected.is_empty(), "{text:?}");
+                assert_eq!(
+                    guard.protects(text.trim()),
+                    !expected.is_empty(),
+                    "{text:?}"
+                );
             }
             "[witness]" => {
                 let n: Vec<i64> = raw.split_whitespace().map(|v| v.parse().unwrap()).collect();

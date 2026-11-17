@@ -127,9 +127,7 @@ impl World {
 
     /// Index of the first `src -> dst` edge, if any.
     pub fn find_edge(&self, src: u32, dst: u32) -> Option<usize> {
-        self.edges
-            .iter()
-            .position(|e| e.src == src && e.dst == dst)
+        self.edges.iter().position(|e| e.src == src && e.dst == dst)
     }
 
     pub fn set_edge_weight(&mut self, at: usize, weight: i8) -> Result<()> {
@@ -155,7 +153,7 @@ impl World {
         let mut delta = vec![0i64; n];
         let mut gather: Vec<i8> = Vec::new();
         let mut weights: Vec<i8> = Vec::new();
-        for dst in 0..n {
+        for (dst, slot) in delta.iter_mut().enumerate() {
             gather.clear();
             weights.clear();
             for e in &self.edges {
@@ -165,11 +163,11 @@ impl World {
                 }
             }
             if !gather.is_empty() {
-                delta[dst] = crate::dot_i8(&gather, &weights);
+                *slot = crate::dot_i8(&gather, &weights);
             }
         }
-        for i in 0..n {
-            self.state[i] = saturate_i8(i64::from(self.state[i]) + delta[i]);
+        for (state, step) in self.state.iter_mut().zip(delta.iter()) {
+            *state = saturate_i8(i64::from(*state) + step);
         }
         self.tick_count += 1;
     }

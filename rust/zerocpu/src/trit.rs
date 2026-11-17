@@ -151,8 +151,8 @@ pub fn from_planes(planes: &[u16]) -> Result<Vec<i64>, TritError> {
     for lane in 0..MAX_LANES {
         let bit = 1u16 << lane;
         let mut magnitude = 0i64;
-        for level in 0..A6P_LEVELS {
-            if planes[level] & bit != 0 {
+        for (level, plane) in planes.iter().enumerate().take(A6P_LEVELS) {
+            if *plane & bit != 0 {
                 magnitude |= 1i64 << level;
             }
         }
@@ -280,7 +280,9 @@ mod tests {
                 assert_eq!(tkand(a, b), Ok(-tnand(a, b).unwrap()));
                 assert_eq!(
                     tkor(a, b),
-                    tknot(tkand(tknot(a).unwrap() as i64, tknot(b).unwrap() as i64).unwrap() as i64)
+                    tknot(
+                        tkand(tknot(a).unwrap() as i64, tknot(b).unwrap() as i64).unwrap() as i64
+                    )
                 );
             }
         }

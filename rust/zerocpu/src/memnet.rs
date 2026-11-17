@@ -256,6 +256,13 @@ impl RingSlot {
 #[derive(Debug, Clone)]
 pub struct RingMemNet {
     slots: [Option<RingSlot>; MEMNET_RING],
+    /// Indices of the occupied slots, in the order they were first written.
+    ///
+    /// The ring is fixed-capacity and allocation-free, so this is a second
+    /// fixed array rather than a `Vec`: reading a nearly empty ring walks a
+    /// handful of entries instead of branching over 64 empty ones.
+    occupied: [u16; MEMNET_RING],
+    occupied_len: usize,
     cursor: usize,
     seq: u32,
 }
@@ -271,6 +278,8 @@ impl RingMemNet {
     pub fn new() -> Self {
         Self {
             slots: [None; MEMNET_RING],
+            occupied: [0; MEMNET_RING],
+            occupied_len: 0,
             cursor: 0,
             seq: 0,
         }
@@ -285,6 +294,10 @@ impl RingMemNet {
                 None => true,
             };
             if reusable {
+                if self.slots[index].is_none() {
+                    self.occupied[self.occupied_len] = index as u16;
+                    self.occupied_len += 1;
+                }
                 self.seq = self.seq.saturating_add(1);
                 self.slots[index] = Some(RingSlot {
                     id: self.seq,
@@ -322,7 +335,11 @@ impl RingMemNet {
             return Err(ObserverError::NegativeRate);
         }
         let mut total: i64 = 0;
-        for slot in self.slots() {
+        for &raw_index in &self.occupied[..self.occupied_len] {
+            let slot = match &self.slots[raw_index as usize] {
+                Some(slot) => slot,
+                None => continue,
+            };
             let amplitude = if slot.anchor {
                 RATE_ONE
             } else {
@@ -331,7 +348,8 @@ impl RingMemNet {
                     RATE_ONE
                 } else {
                     let x = (((elapsed as i128) << 16) / (half_life_ticks as i128))
-                        .min(crate::observer::PADE_X_MAX as i128) as i64;
+                        .min(crate::observer::PADE_X_MAX as i128)
+                        as i64;
                     pade_exp_neg(x)
                 }
             };
@@ -342,7 +360,12 @@ impl RingMemNet {
     }
 
     /// The settled trit: +1, 0 or -1 from the current variance.
-    pub fn consensus(&self, now: i64, half_life_ticks: i64, rate_q16: i64) -> Result<i8, ObserverError> {
+    pub fn consensus(
+        &self,
+        now: i64,
+        half_life_ticks: i64,
+        rate_q16: i64,
+    ) -> Result<i8, ObserverError> {
         let total = self.variance(now, half_life_ticks, rate_q16)?;
         Ok(crate::trit::trit_of(total))
     }
@@ -359,7 +382,11 @@ impl RingMemNet {
     /// Consequence worth stating plainly: there is nothing to synchronise.
     /// Two nodes that exchange a world tick and a half-life compute the same
     /// integer on both sides, offline, with no clock authority anywhere.
-    pub fn variance_world(&self, now_world: i64, half_life_ticks: i64) -> Result<i64, ObserverError> {
+    pub fn variance_world(
+        &self,
+        now_world: i64,
+        half_life_ticks: i64,
+    ) -> Result<i64, ObserverError> {
         self.variance(now_world, half_life_ticks, RATE_ONE)
     }
 
@@ -367,8 +394,14 @@ impl RingMemNet {
     ///
     /// The sign of the weighted sum -- not "is any anchor alive".  An anchor
     /// that has been outvoted contributes its amplitude and still loses.
-    pub fn consensus_world(&self, now_world: i64, half_life_ticks: i64) -> Result<i8, ObserverError> {
-        Ok(crate::trit::trit_of(self.variance_world(now_world, half_life_ticks)?))
+    pub fn consensus_world(
+        &self,
+        now_world: i64,
+        half_life_ticks: i64,
+    ) -> Result<i8, ObserverError> {
+        Ok(crate::trit::trit_of(
+            self.variance_world(now_world, half_life_ticks)?,
+        ))
     }
 
     /// This observer's private reading: `variance` scaled by its own rate.
@@ -453,7 +486,10 @@ mod tests {
         assert_eq!(ring.variance(0, 10, RATE_ONE), Ok(4 * RATE_ONE));
         assert_eq!(ring.variance(1_000_000_000, 10, RATE_ONE), Ok(3 * RATE_ONE));
         assert_eq!(ring.consensus(1_000_000_000, 10, RATE_ONE), Ok(1));
-        assert_eq!(ring.variance(0, 0, RATE_ONE), Err(crate::observer::ObserverError::BadHalfLife));
+        assert_eq!(
+            ring.variance(0, 0, RATE_ONE),
+            Err(crate::observer::ObserverError::BadHalfLife)
+        );
     }
 
     #[test]

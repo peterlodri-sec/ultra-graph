@@ -119,7 +119,11 @@ pub fn pade_exp_neg(x_q16: i64) -> i64 {
 ///
 /// Unlike [`decay`] this is not a recurrence: any `elapsed` costs the same few
 /// multiplications, so a decade-long gap cannot turn into a loop.
-pub fn decay_pade(variance_q16: i64, elapsed: i64, half_life_ticks: i64) -> Result<i64, ObserverError> {
+pub fn decay_pade(
+    variance_q16: i64,
+    elapsed: i64,
+    half_life_ticks: i64,
+) -> Result<i64, ObserverError> {
     if half_life_ticks <= 0 {
         return Err(ObserverError::BadHalfLife);
     }
@@ -307,7 +311,12 @@ impl Slot {
         if self.anchor {
             return ANCHOR_VARIANCE;
         }
-        decay(self.variance0_q16, world_tick - self.born_tick, decay_q16, VARIANCE_FLOOR)
+        decay(
+            self.variance0_q16,
+            world_tick - self.born_tick,
+            decay_q16,
+            VARIANCE_FLOOR,
+        )
     }
 }
 
@@ -439,7 +448,12 @@ mod tests {
         assert_eq!(RATE_ONE, 65536);
         assert_eq!(VARIANCE_FLOOR, 6554);
         assert_eq!(ANCHOR_VARIANCE, 6_553_600);
-        assert!(DECAY_Q16 > (95 * RATE_ONE) / 100 && DECAY_Q16 < (96 * RATE_ONE) / 100);
+        // A range check rather than two comparisons: clippy reads a chain of
+        // constant comparisons as an assertion with a constant value, which is
+        // true and useless -- the point is to pin the constant, not to prove it.
+        let low = 95 * RATE_ONE / 100;
+        let high = 96 * RATE_ONE / 100;
+        assert!((low..high).contains(&DECAY_Q16));
     }
 
     #[test]
@@ -490,7 +504,10 @@ mod tests {
         assert!(!guard.protects("seasonal reasoning"));
         assert!(guard.protects("my SON"));
         let custom = Mahakala::new(&["son", "mother"]);
-        assert_eq!(custom.raise_guard("Mother and son and son"), ["son", "mother"]);
+        assert_eq!(
+            custom.raise_guard("Mother and son and son"),
+            ["son", "mother"]
+        );
     }
 
     #[test]
@@ -501,7 +518,10 @@ mod tests {
         assert_eq!(peak, 40 * VARIANCE_FLOOR);
         assert!(memory.variance("plain", 5).unwrap() < peak);
         memory.remember("monument", 0, 1, true).unwrap();
-        assert_eq!(memory.variance("monument", 1_000_000).unwrap(), ANCHOR_VARIANCE);
+        assert_eq!(
+            memory.variance("monument", 1_000_000).unwrap(),
+            ANCHOR_VARIANCE
+        );
         assert_eq!(memory.anchors(), ["monument"]);
         assert_eq!(memory.tick(0), 2);
         assert_eq!(memory.tick(MAX_DECAY_STEPS), 1);

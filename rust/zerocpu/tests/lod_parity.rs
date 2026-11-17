@@ -16,7 +16,9 @@ fn edges() -> Vec<(usize, usize)> {
         .lines()
         .filter(|l| !l.trim().is_empty())
         .map(|l| {
-            let mut it = l.split_whitespace().map(|t| t.parse::<usize>().expect("vertex id"));
+            let mut it = l
+                .split_whitespace()
+                .map(|t| t.parse::<usize>().expect("vertex id"));
             (it.next().expect("src"), it.next().expect("dst"))
         })
         .collect()
@@ -70,7 +72,11 @@ fn partition_matches_python_exactly() {
     assert_eq!(densities, csv(&want["densities"]), "densities");
     assert_eq!(p.global_density.to_string(), want["global"], "global");
     assert_eq!(p.defect.to_string(), want["defect"], "defect");
-    assert_eq!(p.concentration.to_string(), want["concentration"], "concentration");
+    assert_eq!(
+        p.concentration.to_string(),
+        want["concentration"],
+        "concentration"
+    );
     assert_eq!(p.iterations.to_string(), want["iterations"], "iterations");
 }
 
@@ -81,8 +87,15 @@ fn coarsening_matches_python_and_preserves_mass() {
     let want = expected();
     let p = partition(n, &e, k, epsilon, max_iters).expect("valid fixture graph");
     let sup = coarsen(n, &e, &p.block_of);
-    assert_eq!(sup.len().to_string(), want["super_edges"], "super-edge count");
+    assert_eq!(
+        sup.len().to_string(),
+        want["super_edges"],
+        "super-edge count"
+    );
     let total: u32 = sup.iter().map(|&(_, _, w)| w).sum();
     assert_eq!(total as usize, e.len(), "aggregation must preserve mass");
-    assert!(sup.windows(2).all(|w| w[0] < w[1]), "super-edges sorted and deduped");
+    assert!(
+        sup.windows(2).all(|w| w[0] < w[1]),
+        "super-edges sorted and deduped"
+    );
 }

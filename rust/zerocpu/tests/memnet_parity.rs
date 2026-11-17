@@ -1,7 +1,7 @@
 //! Parity: `zerocpu::memnet` against the golden vectors from the Python reference.
 
-use zerocpu::observer::{ObserverError, ObserverFrame};
 use zerocpu::memnet::{MemNet, RingMemNet};
+use zerocpu::observer::{ObserverError, ObserverFrame};
 
 const VECTORS: &str = include_str!("fixtures/memnet_vectors.txt");
 
@@ -36,7 +36,11 @@ fn matches_python_bit_for_bit() {
                 let fields: Vec<&str> = raw.split_whitespace().collect();
                 if fields.first() == Some(&"len") {
                     assert_eq!(fields.len(), 2, "{raw}");
-                    assert_eq!(ring.len() as i64, fields[1].parse::<i64>().unwrap(), "{raw}");
+                    assert_eq!(
+                        ring.len() as i64,
+                        fields[1].parse::<i64>().unwrap(),
+                        "{raw}"
+                    );
                     continue;
                 }
                 assert_eq!(fields.len(), 5, "{raw}");
@@ -66,11 +70,23 @@ fn matches_python_bit_for_bit() {
                 let rate: i64 = f[5].parse().unwrap();
                 let expected_local: i64 = f[6].parse().unwrap();
 
-                assert_eq!(ring.variance_world(now, half).unwrap(), expected_world, "{raw}");
-                assert_eq!(ring.consensus_world(now, half).unwrap(), expected_trit, "{raw}");
+                assert_eq!(
+                    ring.variance_world(now, half).unwrap(),
+                    expected_world,
+                    "{raw}"
+                );
+                assert_eq!(
+                    ring.consensus_world(now, half).unwrap(),
+                    expected_trit,
+                    "{raw}"
+                );
                 let frame = ObserverFrame::new("fixture", 0, rate).unwrap();
-            assert_eq!(ring.local_variance(&frame, now, half).unwrap(), expected_local, "{raw}");
-        }
+                assert_eq!(
+                    ring.local_variance(&frame, now, half).unwrap(),
+                    expected_local,
+                    "{raw}"
+                );
+            }
             "[world_of]" => {
                 let f: Vec<&str> = raw.split_whitespace().collect();
                 assert_eq!(f.len(), 4, "world_of row needs 4 fields: {raw}");
@@ -79,14 +95,22 @@ fn matches_python_bit_for_bit() {
                 let rate: i64 = f[2].parse().unwrap();
                 let frame = ObserverFrame::new("fixture", origin, rate).unwrap();
                 if f[3] == "ERR" {
-                    assert_eq!(frame.world_of(local), Err(ObserverError::FrozenClock), "{raw}");
+                    assert_eq!(
+                        frame.world_of(local),
+                        Err(ObserverError::FrozenClock),
+                        "{raw}"
+                    );
                 } else {
                     let expected: i64 = f[3].parse().unwrap();
                     assert_eq!(frame.world_of(local).unwrap(), expected, "{raw}");
                     // round trip: world_of(local_time(t)) == t
-                assert_eq!(frame.world_of(frame.local_time(expected)).unwrap(), expected, "{raw}");
+                    assert_eq!(
+                        frame.world_of(frame.local_time(expected)).unwrap(),
+                        expected,
+                        "{raw}"
+                    );
+                }
             }
-        }
             other => panic!("unknown section {other:?}"),
         }
     }
@@ -102,5 +126,9 @@ fn matches_python_bit_for_bit() {
     assert_eq!(ring.len(), 3, "ring fixture must record three slots");
     let mut ba = MemNet::from_hex(merge_rows[1]).unwrap();
     ba.merge(&a);
-    assert_eq!(ba.to_hex(), merge_rows[2], "merge must be order independent");
+    assert_eq!(
+        ba.to_hex(),
+        merge_rows[2],
+        "merge must be order independent"
+    );
 }

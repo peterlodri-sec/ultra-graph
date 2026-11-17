@@ -2,7 +2,7 @@
 //!
 //! Same prompt, same route, on every machine: a fixed sequence of integer
 //! comparisons over [`Features`], with no floats, no regex and no iteration
-//! order dependence.  `ultragraph.zerocpu.router` is the reference; 
+//! order dependence.  `ultragraph.zerocpu.router` is the reference;
 //! `tests/router_parity.rs` pins the two together.
 
 use std::fmt;
@@ -210,12 +210,24 @@ mod tests {
 
     #[test]
     fn thresholds() {
-        assert_eq!(route(&feats(&"a".repeat(ROUTE_MAX_CHARS_BATCH))), ROUTE_CAVEMAN);
-        assert_eq!(route(&feats(&"a".repeat(ROUTE_MAX_CHARS_BATCH + 1))), ROUTE_BATCH);
-        assert_eq!(route(&feats(&"a".repeat(ROUTE_MAX_CHARS_HEAVY))), ROUTE_MODEL);
+        assert_eq!(
+            route(&feats(&"a".repeat(ROUTE_MAX_CHARS_BATCH))),
+            ROUTE_CAVEMAN
+        );
+        assert_eq!(
+            route(&feats(&"a".repeat(ROUTE_MAX_CHARS_BATCH + 1))),
+            ROUTE_BATCH
+        );
+        assert_eq!(
+            route(&feats(&"a".repeat(ROUTE_MAX_CHARS_HEAVY))),
+            ROUTE_MODEL
+        );
         assert_eq!(route(&feats("@plugin hi")), ROUTE_PLUGIN);
         assert_eq!(
-            route(&feats(&format!("{}?!?!", "b".repeat(ROUTE_MAX_CHARS_BATCH + 10)))),
+            route(&feats(&format!(
+                "{}?!?!",
+                "b".repeat(ROUTE_MAX_CHARS_BATCH + 10)
+            ))),
             ROUTE_MODEL
         );
     }

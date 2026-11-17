@@ -177,7 +177,10 @@ mod tests {
     fn name_bounds() {
         assert!(parse_announce(&pack_announce(&"n".repeat(MAX_NAME), 1, 0).unwrap()).is_some());
         assert_eq!(pack_announce("", 1, 0), Err(MeshError::Name));
-        assert_eq!(pack_announce(&"n".repeat(MAX_NAME + 1), 1, 0), Err(MeshError::Name));
+        assert_eq!(
+            pack_announce(&"n".repeat(MAX_NAME + 1), 1, 0),
+            Err(MeshError::Name)
+        );
         assert_eq!(pack_announce("a\u{0}b", 1, 0), Err(MeshError::Name));
     }
 
@@ -202,8 +205,14 @@ mod tests {
     fn merge_prefers_higher_seq_and_sorts() {
         let old = Peer::new("hearth", PROTO_PORT, 1);
         let new = Peer::new("hearth", PROTO_PORT, 2);
-        assert_eq!(merge_peers(&[old.clone()], &new), vec![new.clone()]);
-        assert_eq!(merge_peers(&[new.clone()], &old), vec![new.clone()]);
+        assert_eq!(
+            merge_peers(std::slice::from_ref(&old), &new),
+            vec![new.clone()]
+        );
+        assert_eq!(
+            merge_peers(std::slice::from_ref(&new), &old),
+            vec![new.clone()]
+        );
 
         let mut peers: Vec<Peer> = Vec::new();
         for name in ["zeta", "alpha", "hearth"] {

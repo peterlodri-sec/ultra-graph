@@ -5,7 +5,7 @@ use zerocpu::mesh::{merge_peers, pack_announce, parse_announce, Peer};
 const VECTORS: &str = include_str!("fixtures/mesh_vectors.txt");
 
 fn unhex(text: &str) -> Vec<u8> {
-    assert!(text.len() % 2 == 0, "odd hex length: {text}");
+    assert!(text.len().is_multiple_of(2), "odd hex length: {text}");
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len() / 2);
     for pair in bytes.chunks(2) {

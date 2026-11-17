@@ -44,8 +44,8 @@ pub use fixed::{
     from_int, from_ratio, fx_div, fx_dot, fx_mul, fx_sqrt, round_div, round_shift, saturate_i8,
     to_float, to_int, FRAC_BITS, ONE,
 };
-pub use lod::{coarsen, partition, seed_order, LodError, Partition};
 pub use hope::{observer, resonate, signal, HopeError, Resonance, Signal};
+pub use lod::{coarsen, partition, seed_order, LodError, Partition};
 pub use pqq::{PqError, Report};
-pub use world::{Edge, World, WorldError};
 pub use ternary::{dot_i8, dot_i8_scalar, dot_ternary, pack5, unpack5, TRITS_PER_BYTE};
+pub use world::{Edge, World, WorldError};

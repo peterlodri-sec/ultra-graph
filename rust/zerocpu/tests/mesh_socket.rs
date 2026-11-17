@@ -32,7 +32,10 @@ fn one_frame_survives_a_loopback_round_trip() {
     handle.join().expect("sender thread");
 
     let peer = parse_announce(&buffer[..size]).expect("parsed");
-    assert_eq!((peer.name.as_str(), peer.port, peer.seq), ("hearth", 8423, 7));
+    assert_eq!(
+        (peer.name.as_str(), peer.port, peer.seq),
+        ("hearth", 8423, 7)
+    );
     assert_eq!(from.ip().to_string(), "127.0.0.1");
     assert_eq!(size, buffer.len().min(size));
 }
@@ -46,7 +49,9 @@ fn two_nodes_merge_and_garbage_is_dropped() {
     let port = listener.local_addr().expect("local addr").port();
     let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
 
-    sender.send_to(b"not a frame at all", ("127.0.0.1", port)).expect("junk");
+    sender
+        .send_to(b"not a frame at all", ("127.0.0.1", port))
+        .expect("junk");
     for (name, seq) in [("thunderbird", 1u32), ("hearth", 1), ("hearth", 9)] {
         let frame = pack_announce(name, 8423, seq).expect("frame");
         sender.send_to(&frame, ("127.0.0.1", port)).expect("send");
@@ -70,7 +75,10 @@ fn two_nodes_merge_and_garbage_is_dropped() {
 
     assert_eq!(rejected, 1, "the junk datagram must be refused, not merged");
     assert_eq!(peers.len(), 2, "two names, three frames");
-    let hearth = peers.iter().find(|peer| peer.name == "hearth").expect("hearth");
+    let hearth = peers
+        .iter()
+        .find(|peer| peer.name == "hearth")
+        .expect("hearth");
     assert_eq!(hearth.seq, 9, "the highest seq wins");
     assert_eq!(peers[0].name, "hearth", "merged list is sorted by name");
 }

@@ -16,7 +16,10 @@ use zerocpu::world::World;
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     if !(3..=4).contains(&args.len()) {
-        eprintln!("usage: {} <artifact.ugmz> <program.pqq> [out.ugmz]", args[0]);
+        eprintln!(
+            "usage: {} <artifact.ugmz> <program.pqq> [out.ugmz]",
+            args[0]
+        );
         return ExitCode::from(2);
     }
     let bytes = match std::fs::read(&args[1]) {

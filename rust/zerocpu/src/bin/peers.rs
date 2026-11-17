@@ -28,7 +28,9 @@ fn usage() -> ! {
 }
 
 fn text(args: &[String], index: usize, fallback: &str) -> String {
-    args.get(index).cloned().unwrap_or_else(|| fallback.to_string())
+    args.get(index)
+        .cloned()
+        .unwrap_or_else(|| fallback.to_string())
 }
 
 fn argument(args: &[String], index: usize) -> Option<u16> {

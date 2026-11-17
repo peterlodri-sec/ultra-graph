@@ -91,7 +91,11 @@ pub fn signal(text: &str, n: usize) -> Result<Signal, HopeError> {
     for (i, ch) in text.chars().enumerate() {
         let o = ch as i64;
         let lane = ((o * SALT + i as i64) % n as i64) as usize;
-        heat[lane] += if o & 1 == 0 { SIGNAL_STEP } else { -SIGNAL_STEP };
+        heat[lane] += if o & 1 == 0 {
+            SIGNAL_STEP
+        } else {
+            -SIGNAL_STEP
+        };
     }
     let mean = heat.iter().sum::<i64>().div_euclid(n as i64);
     let trits = heat
@@ -120,7 +124,8 @@ pub fn seed(world: &mut World, sig: &Signal) -> Result<(), HopeError> {
         )));
     }
     for (i, trit) in sig.trits.iter().enumerate() {
-        let idx = u32::try_from(i).map_err(|_| HopeError(format!("lane {i} does not fit in u32")))?;
+        let idx =
+            u32::try_from(i).map_err(|_| HopeError(format!("lane {i} does not fit in u32")))?;
         world
             .set_state(idx, *trit as i64)
             .map_err(|e| HopeError(e.0))?;
@@ -151,7 +156,15 @@ pub fn observer(world: &World) -> i8 {
     let total: i64 = world
         .state
         .iter()
-        .map(|s| if *s > 0 { 1 } else if *s < 0 { -1 } else { 0 })
+        .map(|s| {
+            if *s > 0 {
+                1
+            } else if *s < 0 {
+                -1
+            } else {
+                0
+            }
+        })
         .sum();
     if total == 0 {
         0
@@ -182,7 +195,10 @@ mod tests {
         // floor centering leaves the remainder in the lanes, so the trits are
         // not forced to sum to zero -- but the signal must have *shape*.
         assert!(a.balance().abs() <= a.len() as i64);
-        assert!(a.trits.contains(&1) && a.trits.contains(&-1), "both polarities");
+        assert!(
+            a.trits.contains(&1) && a.trits.contains(&-1),
+            "both polarities"
+        );
         // position matters: a permutation is a different signal
         let rev: String = text.chars().rev().collect();
         assert_ne!(signal(&rev, 8).expect("ok").heat, a.heat);

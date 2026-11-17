@@ -346,8 +346,14 @@ mod tests {
     #[test]
     fn rejects_bad_input() {
         assert!(matches!(partition(0, &[], 1, 0, 1), Err(LodError::BadN(0))));
-        assert!(matches!(partition(4, &[], 0, 0, 1), Err(LodError::BadK(0, 4))));
-        assert!(matches!(partition(4, &[], 5, 0, 1), Err(LodError::BadK(5, 4))));
+        assert!(matches!(
+            partition(4, &[], 0, 0, 1),
+            Err(LodError::BadK(0, 4))
+        ));
+        assert!(matches!(
+            partition(4, &[], 5, 0, 1),
+            Err(LodError::BadK(5, 4))
+        ));
         assert!(matches!(
             partition(4, &[(0, 9)], 2, 0, 1),
             Err(LodError::EdgeOutOfRange(0, 9, 4))
@@ -375,7 +381,11 @@ mod tests {
         assert!(max - min <= 1, "sizes {max} vs {min}");
         // vertices 0..4 form a near-clique; they must share one block
         let b0 = p.block_of[0];
-        assert!((1..4).all(|v| p.block_of[v] == b0), "cluster split: {:?}", p.block_of);
+        assert!(
+            (1..4).all(|v| p.block_of[v] == b0),
+            "cluster split: {:?}",
+            p.block_of
+        );
         assert!(p.concentration > 0);
         assert_eq!(p.iterations, 1);
     }
@@ -386,7 +396,11 @@ mod tests {
         let seed = balanced_order(n, 3, &seed_order(n, &edges));
         let seed_conc = concentration(&counts_of(n, &edges, &seed, 3), &sizes_of(&seed, 3));
         let p = partition(n, &edges, 3, 0, 8).expect("valid graph");
-        assert!(p.concentration as i128 >= seed_conc, "{} < {seed_conc}", p.concentration);
+        assert!(
+            p.concentration as i128 >= seed_conc,
+            "{} < {seed_conc}",
+            p.concentration
+        );
     }
 
     #[test]

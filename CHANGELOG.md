@@ -4,6 +4,39 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.30.0] — 2026-11-17
+
+### Changed
+- `RingMemNet` keeps an `occupied` index array, so reading a nearly empty ring
+  walks the slots that exist instead of branching over 64 that do not. The
+  answer is unchanged -- every sink value in `examples/variance_slots.rs` is
+  identical before and after -- only the work is:
+
+| slots occupied | before | after | speedup |
+|---:|---:|---:|---:|
+| 1 | 42.40 ns | **4.19 ns** | 10.1× |
+| 3 | 57.62 ns | **15.83 ns** | 3.6× |
+| 8 | 105.29 ns | **47.19 ns** | 2.2× |
+| 16 | 149.54 ns | **93.42 ns** | 1.6× |
+| 32 | 247.96 ns | **184.94 ns** | 1.3× |
+| 64 | 419.58 ns | **382.94 ns** | 1.1× |
+
+  Fixed-capacity and allocation-free is preserved: a second `[u16; 64]` and a
+  length, not a `Vec`.
+
+### Added
+- `docs/ULTRABACKYARDLOOP.md` and `docs/lap-ledger.jsonl` -- the DO loop
+  (reflect → improve → wire → polish → push → readme) written down, with the
+  gate a lap must pass and both standing measurements. Every earlier lap had
+  skipped the readme step; this is that omission closed.
+
+### Internal
+- `cargo clippy --all-targets -- -D warnings` is clean for the first time:
+  `manual_contains` in `pqq`, `needless_range_loop` in `trit`/`world`,
+  `cloned_ref_to_slice_refs` in the `mesh` tests, `assertions_on_constants` in
+  the `observer` constants test (now a range check, which is what it always
+  meant), and `manual_is_multiple_of` in the mesh fixture reader.
+
 ## [0.29.0] — 2026-11-16
 
 ### Added

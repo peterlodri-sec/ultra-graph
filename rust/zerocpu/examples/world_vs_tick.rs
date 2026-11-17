@@ -9,7 +9,7 @@
 use std::time::Instant;
 
 use zerocpu::memnet::RingMemNet;
-use zerocpu::observer::{pade_exp_neg, RATE_ONE};
+use zerocpu::observer::pade_exp_neg;
 
 const HALF_LIFE: i64 = 100;
 const REPS: u32 = 200;
@@ -31,7 +31,10 @@ fn per_tick_factor() -> i64 {
 fn main() {
     let ring = build();
     let factor = per_tick_factor();
-    println!("ring slots: {}  per-tick factor: {factor} (Q16)", ring.len());
+    println!(
+        "ring slots: {}  per-tick factor: {factor} (Q16)",
+        ring.len()
+    );
 
     for now in [400i64, 4_000, 40_000] {
         // --- closed form: one evaluation at `now` -----------------------
@@ -63,7 +66,11 @@ fn main() {
 
         let ratio = ticked_time.as_nanos() as f64 / closed_time.as_nanos().max(1) as f64;
         let drift = ticked - closed;
-        let ppm = if closed == 0 { 0 } else { drift * 1_000_000 / closed };
+        let ppm = if closed == 0 {
+            0
+        } else {
+            drift * 1_000_000 / closed
+        };
         println!(
             "now={now:>6}  closed={:>9} ns  per-tick={:>9} ns  ({ratio:>6.1}x)  \
              closed={closed:>10}  ticked={ticked:>10}  drift={drift:>8} ({ppm} ppm)",

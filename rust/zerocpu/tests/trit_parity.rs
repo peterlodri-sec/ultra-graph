@@ -1,10 +1,10 @@
 //! Parity: `zerocpu::trit` against the golden vectors from the Python reference.
 
+use zerocpu::ternary::{is_ternary_packed, ternary_dot_packed};
 use zerocpu::trit::{
-    bitplanes, delta_for_level, from_planes, plane_parity, quantize, tkand, tknot, tnand, tkor,
+    bitplanes, delta_for_level, from_planes, plane_parity, quantize, tkand, tknot, tkor, tnand,
     trit_of, MAGNITUDE_MAX,
 };
-use zerocpu::ternary::{is_ternary_packed, ternary_dot_packed};
 
 const VECTORS: &str = include_str!("fixtures/trit_vectors.txt");
 
@@ -91,7 +91,11 @@ fn matches_python_bit_for_bit() {
                     word
                 };
                 let expected: i64 = parts[2].parse().unwrap();
-                assert_eq!(ternary_dot_packed(lanes(parts[0]), lanes(parts[1])), expected, "{raw}");
+                assert_eq!(
+                    ternary_dot_packed(lanes(parts[0]), lanes(parts[1])),
+                    expected,
+                    "{raw}"
+                );
             }
             other => panic!("unknown section {other:?}"),
         }

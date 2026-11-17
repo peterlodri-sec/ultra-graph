@@ -44,7 +44,10 @@ fn zero_ticks_reproduces_the_compiled_state() {
         .lines()
         .find(|l| l.starts_with("pos="))
         .expect("pos in fixture");
-    assert!(lines.any(|l| l == pos_expected), "positions must be tick-invariant");
+    assert!(
+        lines.any(|l| l == pos_expected),
+        "positions must be tick-invariant"
+    );
 }
 
 #[test]

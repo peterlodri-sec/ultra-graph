@@ -87,7 +87,10 @@ fn parse_op(line: usize, kind: &str, args: &[&str]) -> Result<Op, PqError> {
                 return Err(PqError::at(line, "edge needs SRC DST WEIGHT"));
             }
             let weight: i64 = args[2].parse().map_err(|_| {
-                PqError::at(line, format!("weight must be an integer, got {:?}", args[2]))
+                PqError::at(
+                    line,
+                    format!("weight must be an integer, got {:?}", args[2]),
+                )
             })?;
             if !(-1..=1).contains(&weight) {
                 return Err(PqError::at(
@@ -129,9 +132,12 @@ fn parse_op(line: usize, kind: &str, args: &[&str]) -> Result<Op, PqError> {
             if args.len() != 1 {
                 return Err(PqError::at(line, "step needs N"));
             }
-            let n: i64 = args[0]
-                .parse()
-                .map_err(|_| PqError::at(line, format!("step count must be an integer, got {:?}", args[0])))?;
+            let n: i64 = args[0].parse().map_err(|_| {
+                PqError::at(
+                    line,
+                    format!("step count must be an integer, got {:?}", args[0]),
+                )
+            })?;
             if n < 0 {
                 return Err(PqError::at(
                     line,
@@ -172,7 +178,7 @@ pub fn parse(text: &str) -> Result<Vec<Op>, PqError> {
             seen_header = true;
             continue;
         }
-        if toks.iter().any(|t| *t == "q") {
+        if toks.contains(&"q") {
             return Err(PqError::at(
                 lineno,
                 "unresolved draw: a .pqq must be compiled with pqq.resolve() first",
@@ -199,9 +205,9 @@ fn apply_one(world: &mut World, line: usize, op: Op) -> Result<u64, PqError> {
             Ok(0)
         }
         Op::Flip { src, dst } => {
-            let at = world.find_edge(src, dst).ok_or_else(|| {
-                PqError::at(line, format!("flip: no edge {src} -> {dst}"))
-            })?;
+            let at = world
+                .find_edge(src, dst)
+                .ok_or_else(|| PqError::at(line, format!("flip: no edge {src} -> {dst}")))?;
             let flipped = -world.edges[at].weight;
             world
                 .set_edge_weight(at, flipped)
@@ -249,7 +255,7 @@ pub fn run(world: &mut World, text: &str) -> Result<Report, PqError> {
             continue;
         }
         let toks: Vec<&str> = line.split_whitespace().collect();
-        if toks.iter().any(|t| *t == "q") {
+        if toks.contains(&"q") {
             return Err(PqError::at(
                 lineno,
                 "unresolved draw: a .pqq must be compiled with pqq.resolve() first",
@@ -313,10 +319,19 @@ mod tests {
     fn rejects_unresolved_and_malformed_programs() {
         let mut w = diamond();
         assert!(run(&mut w, "step 1").is_err(), "missing header");
-        assert!(run(&mut w, "pqq 1\nset 1 2 q 1/2").is_err(), "unresolved draw");
-        assert!(run(&mut w, "pqq 1\nwire a b").is_err(), "wire is not a world op");
+        assert!(
+            run(&mut w, "pqq 1\nset 1 2 q 1/2").is_err(),
+            "unresolved draw"
+        );
+        assert!(
+            run(&mut w, "pqq 1\nwire a b").is_err(),
+            "wire is not a world op"
+        );
         assert!(run(&mut w, "pqq 1\nedge 0 99 1").is_err(), "missing node");
-        assert!(run(&mut w, "pqq 1\nedge 0 1 2").is_err(), "non-ternary weight");
+        assert!(
+            run(&mut w, "pqq 1\nedge 0 1 2").is_err(),
+            "non-ternary weight"
+        );
         assert!(run(&mut w, "pqq 1\nflip 0 2").is_err(), "no such edge");
         assert!(run(&mut w, "pqq 1\nprune 0 2").is_err(), "no such edge");
         assert!(run(&mut w, "pqq 1\nstep -1").is_err(), "negative step");
