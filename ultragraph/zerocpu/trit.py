@@ -180,3 +180,54 @@ def tkor(a: int, b: int) -> int:
 def tknot(a: int) -> int:
     """Kleene negation: ``-a``.  ``Zero`` stays ``Zero`` -- undecided is not false."""
     return -_require_trit("a", a)
+
+
+#: Eight ternary lanes per machine word: the SWAR packing used by
+#: `ternary_dot_packed`.  Each lane is one two's-complement byte.
+PACKED_LANES = 8
+#: Lowest bit of every byte in a packed word.
+LANE_ONE = 0x0101010101010101
+
+
+def pack_ternary(lanes: Sequence[int]) -> int:
+    """Pack up to eight trits into one word, each as a signed byte.
+
+    ``+1`` is ``0x01``, ``0`` is ``0x00`` and ``-1`` is ``0xFF``.  Fewer than
+    eight lanes are zero-padded on the high end, which leaves the dot product
+    unchanged because ``0`` contributes nothing.
+    """
+    if len(lanes) > PACKED_LANES:
+        raise ValueError(f"at most {PACKED_LANES} lanes fit in one word, got {len(lanes)}")
+    word = 0
+    for index, lane in enumerate(lanes):
+        if lane not in (TRIT_NEG, TRIT_ZERO, TRIT_ONE):
+            raise ValueError(f"lane {index} is {lane}, not a trit")
+        word |= (lane & 0xFF) << (8 * index)
+    return word
+
+
+def unpack_ternary(word: int, count: int = PACKED_LANES) -> tuple[int, ...]:
+    """The trits inside a packed word, low lane first."""
+    if not 0 <= count <= PACKED_LANES:
+        raise ValueError(f"count must be in 0..{PACKED_LANES}, got {count}")
+    return tuple(((word >> (8 * index)) & 0xFF) - 256 * ((word >> (8 * index + 7)) & 1)
+                 for index in range(count))
+
+
+def ternary_dot_packed(a: int, b: int) -> int:
+    """``sum(a[i] * b[i])`` over eight packed ternary lanes, without multiplying.
+
+    ``+1 * +1`` and ``-1 * -1`` are ``+1``; a mismatched sign is ``-1``; a zero
+    lane is zero.  So the whole dot product is two bit-AND masks per outcome and
+    two popcounts -- no multiply, no widening, no tables, and identical on every
+    architecture.
+    """
+    # `-1` is 0xFF, whose lowest bit is set too: clear the negative lanes
+    # before reading a lane as +1, or every -1 counts as a +1 as well.
+    a_neg = (a >> 7) & LANE_ONE
+    b_neg = (b >> 7) & LANE_ONE
+    a_one = a & LANE_ONE & ~a_neg
+    b_one = b & LANE_ONE & ~b_neg
+    positive = (a_one & b_one) | (a_neg & b_neg)
+    negative = (a_one & b_neg) | (a_neg & b_one)
+    return bin(positive).count("1") - bin(negative).count("1")

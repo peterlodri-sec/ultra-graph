@@ -43,6 +43,47 @@ pub fn dot_i8_scalar(a: &[i8], b: &[i8]) -> i64 {
         .sum()
 }
 
+/// Eight ternary lanes per machine word: the SWAR packing used by
+/// [`ternary_dot_packed`].  Each lane is one two's-complement byte.
+pub const PACKED_LANES: usize = 8;
+/// Lowest bit of every byte in a packed word.
+pub const LANE_ONE: i64 = 0x0101_0101_0101_0101;
+
+/// `sum(a[i] * b[i])` over eight packed ternary lanes, without multiplying.
+///
+/// `+1 * +1` and `-1 * -1` are `+1`; a mismatched sign is `-1`; a zero lane is
+/// zero.  So the whole dot product is two bit-AND masks per outcome and two
+/// popcounts -- no multiply, no widening, no tables, and identical on every
+/// architecture (this is the portable twin of `neon::dot_i8`).
+///
+/// The contract is ternary lanes: each byte must be `0x00`, `0x01` or `0xFF`.
+/// Anything else is silently misread as one of those, so validate at the edge;
+/// debug builds assert it here.
+pub fn ternary_dot_packed(a: i64, b: i64) -> i64 {
+    debug_assert!(is_ternary_packed(a), "lane out of ternary range: {a:#018x}");
+    debug_assert!(is_ternary_packed(b), "lane out of ternary range: {b:#018x}");
+    // `-1` is 0xFF, whose lowest bit is set too: clear the negative lanes
+    // before reading a lane as +1, or every -1 counts as a +1 as well.
+    let a_neg = (a >> 7) & LANE_ONE;
+    let b_neg = (b >> 7) & LANE_ONE;
+    let a_one = a & LANE_ONE & !a_neg;
+    let b_one = b & LANE_ONE & !b_neg;
+    let positive = (a_one & b_one) | (a_neg & b_neg);
+    let negative = (a_one & b_neg) | (a_neg & b_one);
+    i64::from(positive.count_ones()) - i64::from(negative.count_ones())
+}
+
+/// True when every byte of `word` is `0x00`, `0x01` or `0xFF`.
+pub fn is_ternary_packed(word: i64) -> bool {
+    for lane in 0..PACKED_LANES {
+        let byte = ((word >> (8 * lane)) & 0xFF) as u8;
+        if byte != 0x00 && byte != 0x01 && byte != 0xFF {
+            return false;
+        }
+    }
+    true
+}
+
 /// Dot product of ternary weights against int8 activations.
 pub fn dot_ternary(w: &[i8], x: &[i8]) -> i64 {
     assert_eq!(w.len(), x.len(), "length mismatch");

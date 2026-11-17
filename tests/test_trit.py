@@ -10,14 +10,17 @@ from ultragraph.zerocpu.trit import (
     decay,
     delta_for_level,
     from_planes,
+    pack_ternary,
     plane_parity,
     quantize,
     quantize_many,
+    ternary_dot_packed,
     tkand,
     tknot,
     tkor,
     tnand,
     trit_of,
+    unpack_ternary,
 )
 
 
@@ -177,3 +180,53 @@ def test_kleene_rejects_non_trits():
 def test_trit_of_classifies_signs():
     assert [trit_of(v) for v in (-7, 0, 9)] == [-1, 0, 1]
     assert trit_of(-0) == 0
+
+
+def test_pack_unpack_round_trips_eight_lanes():
+    lanes = (1, 0, -1, 1, -1, 0, 1, -1)
+    assert unpack_ternary(pack_ternary(lanes)) == lanes
+
+
+def test_pack_unpack_round_trips_a_partial_vector():
+    # Fewer than eight lanes zero-pad; the padding contributes nothing.
+    lanes = (1, -1, 1)
+    assert unpack_ternary(pack_ternary(lanes), len(lanes)) == lanes
+    assert unpack_ternary(pack_ternary(lanes))[3:] == (0, 0, 0, 0, 0)
+
+
+def test_pack_rejects_nine_lanes_and_a_non_trit():
+    for bad in (lambda: pack_ternary([1] * 9), lambda: pack_ternary([2]), lambda: pack_ternary([1, -2])):
+        try:
+            bad()
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("packing must refuse a non-ternary lane")
+
+
+def test_packed_dot_matches_the_naive_sum():
+    import random
+
+    rng = random.Random(7)
+    for _ in range(2000):
+        n = rng.randrange(0, 9)
+        a = [rng.choice((-1, 0, 1)) for _ in range(n)]
+        b = [rng.choice((-1, 0, 1)) for _ in range(n)]
+        assert ternary_dot_packed(pack_ternary(a), pack_ternary(b)) == sum(x * y for x, y in zip(a, b))
+
+
+def test_packed_dot_corners():
+    assert ternary_dot_packed(0, 0) == 0
+    assert ternary_dot_packed(pack_ternary([1] * 8), pack_ternary([1] * 8)) == 8
+    assert ternary_dot_packed(pack_ternary([-1] * 8), pack_ternary([-1] * 8)) == 8
+    assert ternary_dot_packed(pack_ternary([1] * 8), pack_ternary([-1] * 8)) == -8
+    # Disjoint supports: zeros contribute nothing, not a sign flip.
+    assert ternary_dot_packed(pack_ternary([1, 0, 0, 0, 0, 0, 0, 0]),
+                              pack_ternary([0, -1, 0, 0, 0, 0, 0, 0])) == 0
+
+
+def test_packed_dot_handles_the_mixed_sign_case_that_breaks_naive_bits():
+    """`-1` is 0xFF, whose low bit is set: reading it as +1 was a real bug."""
+    a = (1, -1, 1, 0, -1, 1, 1, -1)
+    b = (1, 1, -1, 0, -1, 1, -1, 1)
+    assert ternary_dot_packed(pack_ternary(a), pack_ternary(b)) == sum(x * y for x, y in zip(a, b))

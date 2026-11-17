@@ -242,7 +242,8 @@ p = partition(3, [(0, 1), (1, 2), (2, 0)], k=1)
 | `zerocpu/lod.py` | quasi-regular partitioning: maximises structure, *reports* residual defect instead of claiming regularity |
 | `zerocpu/pqq.py` | compiled `.pqq` programs: rational draws settled once at compile time, replayed with no PRNG |
 | `zerocpu/hope.py` | text → integer heat per lane → seeded world → tick → observer collapse; no floats, no keyword tables |
-| `zerocpu/trit.py` | Q-delta ternary quantizer (`A6P-15A`) + 16-plane bit layout that pops straight into NEON; `quantize`, `bitplanes`, `plane_parity` |
+| `zerocpu/trit.py` | Q-delta ternary quantizer, A6P-15A bitplanes, and the SWAR packed-ternary dot (eight lanes per word, no multiply) |
+| (was above) | Q-delta ternary quantizer (`A6P-15A`) + 16-plane bit layout that pops straight into NEON; `quantize`, `bitplanes`, `plane_parity` |
 | `zerocpu/router.py` | integer route selection — kernel / batch / model / plugin / deny — from position-weighted heat; `explain()` shows the counts, not the mood |
 | `zerocpu/meshd.py` | the socket path around `mesh.py`: `MeshListener` (loopback by default), `announce()`, and a `python -m` CLI — the Python twin of `bin/peers.rs` |
 | `zerocpu/memnet.py` | sequence-ordered associative memory (`(seq, value)` beats wall-clock): commutative, associative, idempotent merge, plus `RingMemNet` — a fixed 64-slot ring with decaying amplitudes and anchors that never fade |

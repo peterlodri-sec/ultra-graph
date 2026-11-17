@@ -4,6 +4,7 @@ use zerocpu::trit::{
     bitplanes, delta_for_level, from_planes, plane_parity, quantize, tkand, tknot, tnand, tkor,
     trit_of, MAGNITUDE_MAX,
 };
+use zerocpu::ternary::{is_ternary_packed, ternary_dot_packed};
 
 const VECTORS: &str = include_str!("fixtures/trit_vectors.txt");
 
@@ -71,6 +72,26 @@ fn matches_python_bit_for_bit() {
                 assert_eq!(i64::from(tkand(n[0], n[1]).unwrap()), n[3], "{raw}");
                 assert_eq!(i64::from(tkor(n[0], n[1]).unwrap()), n[4], "{raw}");
                 assert_eq!(i64::from(tknot(n[0]).unwrap()), n[5], "{raw}");
+            }
+            "[packed]" => {
+                let parts: Vec<&str> = raw.split('|').map(str::trim).collect();
+                assert_eq!(parts.len(), 3, "{raw}");
+                let lanes = |text: &str| -> i64 {
+                    let mut word = 0i64;
+                    for (index, lane) in text
+                        .trim_matches(|c| c == '[' || c == ']' || c == ' ')
+                        .split(',')
+                        .map(str::trim)
+                        .enumerate()
+                    {
+                        let value: i64 = lane.parse().unwrap();
+                        word |= (value & 0xFF) << (8 * index);
+                    }
+                    assert!(is_ternary_packed(word), "fixture lane out of range: {text}");
+                    word
+                };
+                let expected: i64 = parts[2].parse().unwrap();
+                assert_eq!(ternary_dot_packed(lanes(parts[0]), lanes(parts[1])), expected, "{raw}");
             }
             other => panic!("unknown section {other:?}"),
         }

@@ -35,8 +35,10 @@ from ultragraph.zerocpu.trit import (
     A6P_LEVELS,
     bitplanes,
     delta_for_level,
+    pack_ternary,
     plane_parity,
     quantize_many,
+    ternary_dot_packed,
     tnand,
 )
 
@@ -165,6 +167,14 @@ def main(argv: list[str]) -> int:
         f" local_fast={ring.local_variance(fast, 4000, 10)}"
         f" local_slow={ring.local_variance(slow, 4000, 10)}"
         f" (agreement is the rate-free column; the local ones differ on purpose)"
+    )
+
+    lanes_a = (1, -1, 1, 0, -1, 1, 1, -1)
+    lanes_b = (1, 1, -1, 0, -1, 1, -1, 1)
+    print(
+        f"\n[9] swar     dot={ternary_dot_packed(pack_ternary(lanes_a), pack_ternary(lanes_b))}"
+        f" (expected {sum(x * y for x, y in zip(lanes_a, lanes_b))})"
+        f" lanes={pack_ternary(lanes_a):#018x}"
     )
 
     print(

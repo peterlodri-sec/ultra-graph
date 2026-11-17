@@ -4,6 +4,30 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.29.0] — 2026-11-16
+
+### Added
+- `pack_ternary` / `unpack_ternary` / `ternary_dot_packed` — eight ternary lanes
+  in one machine word, dotted without multiplying. `+1 * +1` and `-1 * -1` are
+  `+1`, a mismatched sign is `-1`, a zero lane is `0`; the whole product is two
+  AND masks per outcome and two popcounts. Portable (no NEON, no `x86`), exact,
+  and the twin of `neon::dot_i8` for the sizes that fit in a word.
+- `[packed]` fixture section and Rust parity, plus 7 Python tests. 26 trit
+  tests now; 237 total.
+- Demo step `[9]` prints a packed dot next to the naive sum so the two can be
+  compared by eye.
+
+### Fixed while writing it
+- The obvious bit reading is wrong: `-1` is `0xFF`, whose lowest bit is set, so
+  `a & LANE_ONE` reads every `-1` lane as a `+1` as well. The negative lanes
+  have to be cleared before a lane counts as `+1`. Found by fuzzing the first
+  version against the naive sum (11 376 of 20 000 cases wrong), then pinned by
+  `test_packed_dot_handles_the_mixed_sign_case_that_breaks_naive_bits`.
+
+### g8t
+- `ternary_dot_packed` capsule published: 44 asm instructions, zero floats,
+  zero unsafe, equivalence crown, **+400 FKN → 13 capsules / 6250 FKN**.
+
 ## [0.28.0] — 2026-11-16
 
 ### Added

@@ -1,6 +1,6 @@
 [package]
 name = "zerocpu"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 publish = false
 description = "Deterministic integer kernels for ultragraph: Q16.16, 5-trit packing, NEON dot."
