@@ -4,6 +4,41 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.32.0] — 2026-11-17
+
+### Changed
+- `decay_x(elapsed, half_life)` is now shared by `observer::decay_pade` and
+  `RingMemNet::variance`. It computes `elapsed * 65536 / half_life`, clamped to
+  the Padé domain, with **no 128-bit divide on the common path**:
+  `elapsed > 40 * half_life` is "older than the domain" and returns immediately,
+  otherwise it is one `i64` multiply and one `i64` divide. The wide form
+  survives only when `elapsed * 65536` would overflow, which is where exactness
+  matters and cost does not.
+
+| slots occupied | 0.30.1 | 0.32.0 | speedup |
+|---:|---:|---:|---:|
+| 1 | 3.92 ns | **3.55 ns** | 1.1× |
+| 8 | 30.33 ns | **22.41 ns** | 1.4× |
+| 32 | 178.50 ns | **107.10 ns** | 1.7× |
+| 64 | 230.85 ns | **130.63 ns** | 1.8× |
+
+  Every `sink` is unchanged: same answers, less work.
+
+### Added
+- `examples/decay_x_cost.rs` — times the wide, hybrid and naive spellings side by
+  side and asserts the hybrid equals the wide form on the edges (including
+  `i64::MAX`). It also prints the naive floor's *wrong* sinks, which is the point
+  of keeping it: `(elapsed << 16)` wrapping is not a shortcut, it is a bug.
+- `[decay_x]` fixture rows (ten, generated from Python) with Rust parity, two
+  Rust unit tests, and three Python tests.
+- `decay_x` is exported, so the twin is reachable from both sides.
+
+### g8t
+- `decay_pade` republished with the hybrid: **69.0 → 27.4 cycles/op (2.5×)**,
+  same output digest `d620cb1e…`, crown retained, +400 FKN. The instruction
+  count went *up* (141 → 172) because the wide path is still linked in; the
+  branches are cheap and the `__divti3` they skip is not.
+
 ## [0.31.0] — 2026-11-17
 
 ### Added

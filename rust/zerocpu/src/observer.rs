@@ -130,13 +130,37 @@ pub fn decay_pade(
     if elapsed <= 0 {
         return Ok(variance_q16);
     }
-    // `elapsed << 16` wraps for astronomical elapsed values and would flip the
-    // sign of the scale, reporting "barely decayed" for a band that has aged
-    // out entirely. Widen, then clamp to the Padé domain's top: fully decayed.
-    let x_q16 = ((elapsed as i128) << 16) / (half_life_ticks as i128);
-    let x_q16 = x_q16.min(PADE_X_MAX as i128) as i64;
+    let x_q16 = decay_x(elapsed, half_life_ticks);
     let amplitude = pade_exp_neg(x_q16);
     Ok((variance_q16 * amplitude) >> 16)
+}
+
+/// The scaled decay exponent `x = elapsed * 65536 / half_life`, clamped to the
+/// Padé domain.
+///
+/// The obvious spelling -- `((elapsed as i128) << 16) / half_life` -- is exact
+/// but compiles to `__divti3`, a *128-bit* divide, on every call, and
+/// `RingMemNet::variance` makes one call per occupied slot. This keeps the
+/// common case in `i64`: one multiply, one divide, plus a cheap reject for
+/// bands older than the domain. The wide form survives only for an `elapsed`
+/// large enough to overflow the multiply, which is where correctness matters
+/// and cost does not.
+#[inline]
+pub fn decay_x(elapsed: i64, half_life_ticks: i64) -> i64 {
+    debug_assert!(half_life_ticks > 0, "decay_x needs a positive half-life");
+    // Older than the Padé domain: the amplitude is exactly zero. Saying so here
+    // skips the divide, which is the common case for a long-lived ring.
+    if let Some(limit) = half_life_ticks.checked_mul(PADE_X_MAX >> 16) {
+        if elapsed >= limit {
+            return PADE_X_MAX;
+        }
+    }
+    match elapsed.checked_mul(1 << 16) {
+        Some(scaled) => (scaled / half_life_ticks).min(PADE_X_MAX),
+        None => {
+            (((elapsed as i128) << 16) / (half_life_ticks as i128)).min(PADE_X_MAX as i128) as i64
+        }
+    }
 }
 
 /// A local clock: `local = (world_tick - origin_world) * rate >> 16`.
@@ -454,6 +478,37 @@ mod tests {
         let low = 95 * RATE_ONE / 100;
         let high = 96 * RATE_ONE / 100;
         assert!((low..high).contains(&DECAY_Q16));
+    }
+
+    #[test]
+    fn decay_x_matches_the_wide_form_on_every_edge() {
+        let cases: [(i64, i64); 8] = [
+            (1, 100),
+            (4_000, 100),
+            (4_001, 100),
+            (9_000_000_000_000, 10),
+            (i64::MAX, 1),
+            (i64::MAX, i64::MAX),
+            (1_000, i64::MAX / 2),
+            (0, 7),
+        ];
+        for (elapsed, half) in cases {
+            let wide = (((elapsed as i128) << 16) / (half as i128)).min(PADE_X_MAX as i128) as i64;
+            assert_eq!(
+                decay_x(elapsed, half),
+                wide,
+                "elapsed={elapsed} half={half}"
+            );
+        }
+    }
+
+    #[test]
+    fn decay_x_clamps_older_than_the_domain() {
+        assert_eq!(decay_x(40 * 100, 100), PADE_X_MAX);
+        assert_eq!(decay_x(40 * 100 + 1, 100), PADE_X_MAX);
+        assert_eq!(decay_x(i64::MAX, 1), PADE_X_MAX);
+        // A half-life so large that the band is brand new.
+        assert_eq!(decay_x(1_000, i64::MAX / 2), 0);
     }
 
     #[test]

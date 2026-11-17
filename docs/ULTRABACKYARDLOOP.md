@@ -56,6 +56,7 @@ A lap must move a number. Two standing measurements, both re-runnable:
 cd rust/zerocpu
 cargo run --release --example world_vs_tick     # closed form vs per-tick loop
 cargo run --release --example variance_slots    # sparse ring read cost
+cargo run --release --example decay_x_cost      # wide vs hybrid vs naive divide
 ```
 
 **`world_vs_tick`** — why the ring is closed-form and carries no bitmasks. A
@@ -172,9 +173,26 @@ a green check next to it.
 | 6 | `91296b3` | 0.28.0 | decay by world tick; rate-free consensus |
 | 7 | `918ef67` | 0.29.0 | eight ternary lanes per word, no multiply |
 | 8 | `4cc7ff6` | 0.29.0 | two cycle-golf crowns (binary gcd), one refused |
+**`decay_x_cost`** — the exponent `elapsed * 65536 / half_life` is needed once
+per occupied slot. The exact spelling `((elapsed as i128) << 16) / half_life`
+lowers to `__divti3`, a 128-bit divide; the hybrid keeps the common case in
+`i64` and pays for width only when `elapsed * 65536` would overflow. Measured on
+the ring read (identical sinks, so identical answers):
+
+| slots occupied | before (wide) | after (hybrid) | speedup |
+|---:|---:|---:|---:|
+| 1 | 3.92 ns | **3.55 ns** | 1.1× |
+| 8 | 30.33 ns | **22.41 ns** | 1.4× |
+| 32 | 178.50 ns | **107.10 ns** | 1.7× |
+| 64 | 230.85 ns | **130.63 ns** | 1.8× |
+
+The published `decay_pade` capsule gained the same change: **69.0 → 27.4
+cycles/op**, same output digest, crown retained.
+
 | 9 | `05d9e19` | 0.30.0 | skip empty slots when reading the ring (10.1× at one slot) |
 | 10 | `ac7d26b` | 0.30.1 | refuse a non-loopback bind unless the caller means it |
 | 11 | `c77e670` | 0.31.0 | pin the wiring: every twin, every export, every layer |
+| 12 | see ledger | 0.32.0 | `decay_x`: no 128-bit divide on the ring's hot path |
 
 ---
 

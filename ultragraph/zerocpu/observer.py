@@ -117,6 +117,23 @@ def pade_exp_neg(x_q16: int) -> int:
     return pade >> k
 
 
+def decay_x(elapsed: int, half_life_ticks: int) -> int:
+    """The scaled decay exponent ``x = elapsed * 65536 / half_life``, clamped.
+
+    Python has arbitrary-precision integers, so the widen-then-divide that the
+    Rust side needs for ``|elapsed| > 2**47`` is free here; the clamp and the
+    "older than the domain" shortcut are the parts worth sharing. Keeping the
+    same name and contract on both sides is what lets the fixtures pin them
+    together.
+    """
+    if half_life_ticks <= 0:
+        raise ValueError("half_life_ticks must be positive")
+    limit = (PADE_X_MAX >> 16) * half_life_ticks
+    if elapsed >= limit:
+        return PADE_X_MAX
+    return min((elapsed << 16) // half_life_ticks, PADE_X_MAX)
+
+
 def decay_pade(
     variance_q16: int,
     elapsed: int,

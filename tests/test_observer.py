@@ -9,6 +9,7 @@ from ultragraph.zerocpu.observer import (  # noqa: E402
     ANCHOR_VARIANCE,
     DECAY_Q16,
     MAX_DECAY_STEPS,
+    PADE_X_MAX,
     RATE_ONE,
     VARIANCE_FLOOR,
     Mahakala,
@@ -16,6 +17,7 @@ from ultragraph.zerocpu.observer import (  # noqa: E402
     Witness,
     decay,
     decay_pade,
+    decay_x,
     pade_exp_neg,
     relativity,
 )
@@ -211,3 +213,28 @@ def test_pade_rejects_non_integers():
         pass
     else:
         raise AssertionError("floats must not enter a deterministic path")
+
+
+def test_decay_x_matches_the_naive_formula_and_clamps():
+    for elapsed, half in ((1, 100), (4000, 100), (4001, 100), (0, 7),
+                          (9_000_000_000_000, 10), (2**63 - 1, 1),
+                          (2**63 - 1, 2**63 - 1), (1000, 2**62)):
+        wide = min((elapsed << 16) // half, PADE_X_MAX)
+        assert decay_x(elapsed, half) == wide, (elapsed, half)
+
+
+def test_decay_x_rejects_a_non_positive_half_life():
+    for half in (0, -1):
+        try:
+            decay_x(10, half)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"decay_x accepted half_life_ticks={half}")
+
+
+def test_decay_x_is_the_exponent_behind_decay_pade():
+    """decay_pade is decay_x followed by the Pade amplitude, nothing else."""
+    for elapsed, half in ((10, 100), (400, 100), (4000, 100)):
+        expected = (131072 * pade_exp_neg(decay_x(elapsed, half))) >> 16
+        assert decay_pade(131072, elapsed, half) == expected

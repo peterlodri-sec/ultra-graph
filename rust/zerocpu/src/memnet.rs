@@ -347,10 +347,7 @@ impl RingMemNet {
                 if elapsed <= 0 {
                     RATE_ONE
                 } else {
-                    let x = (((elapsed as i128) << 16) / (half_life_ticks as i128))
-                        .min(crate::observer::PADE_X_MAX as i128)
-                        as i64;
-                    pade_exp_neg(x)
+                    pade_exp_neg(crate::observer::decay_x(elapsed, half_life_ticks))
                 }
             };
             let term = (slot.amp_q16 * amplitude) >> 16;

@@ -83,6 +83,7 @@ from .observer import (
     Slot,
     Witness,
     decay_pade,
+    decay_x,
     pade_exp_neg,
     relativity,
 )
@@ -189,6 +190,7 @@ __all__ = [
     "decay",
     "decay_pade",
     "decay_variance",
+    "decay_x",
     "delta_for_level",
     "density_stats",
     "dump_pqq",
