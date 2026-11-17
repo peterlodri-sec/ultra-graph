@@ -23,6 +23,7 @@ MODULES = [
     "test_mesh",
     "test_mesh_socket",
     "test_sync",
+    "test_wiring",
     "test_observer",
     "test_router",
     "test_trit",

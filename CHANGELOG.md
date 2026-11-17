@@ -4,6 +4,22 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.31.0] — 2026-11-17
+
+### Added
+- `tests/test_wiring.py` (9 tests): the two claims in `docs/ULTRABACKYARDLOOP.md`
+  that no benchmark can defend. Every name in `__all__` resolves; every module
+  under `zerocpu/` is mapped to its Rust twin or carries a stated reason it has
+  none (`evolve`, `vaked_bridge`, `meshd`); every `.rs` file is accounted for
+  (`neon.rs` twins `ternary::dot_i8` on real hardware); and every deterministic
+  layer is touched by the demo, by symbol or by module name.
+
+### Fixed
+- Three names had drifted out of `__all__`'s convention order (`pack_ternary`,
+  `ternary_dot_packed`, `unpack_ternary` were appended rather than placed).
+  The convention -- CONSTANTS, then Classes, then functions, each sorted -- was
+  never written down and never checked; now it is both.
+
 ## [0.30.1] — 2026-11-17
 
 ### Changed
