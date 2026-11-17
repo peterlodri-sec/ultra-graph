@@ -172,7 +172,7 @@ a green check next to it.
 | 6 | `91296b3` | 0.28.0 | decay by world tick; rate-free consensus |
 | 7 | `918ef67` | 0.29.0 | eight ternary lanes per word, no multiply |
 | 8 | `4cc7ff6` | 0.29.0 | two cycle-golf crowns (binary gcd), one refused |
-| 9 | see ledger | 0.30.0 | skip empty slots when reading the ring (10.1× at one slot) |
+| 9 | `05d9e19` | 0.30.0 | skip empty slots when reading the ring (10.1× at one slot) |
 
 ---
 
