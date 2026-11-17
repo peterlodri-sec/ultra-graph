@@ -173,6 +173,8 @@ a green check next to it.
 | 7 | `918ef67` | 0.29.0 | eight ternary lanes per word, no multiply |
 | 8 | `4cc7ff6` | 0.29.0 | two cycle-golf crowns (binary gcd), one refused |
 | 9 | `05d9e19` | 0.30.0 | skip empty slots when reading the ring (10.1× at one slot) |
+| 10 | `ac7d26b` | 0.30.1 | refuse a non-loopback bind unless the caller means it |
+| 11 | `c77e670` | 0.31.0 | pin the wiring: every twin, every export, every layer |
 
 ---
 
