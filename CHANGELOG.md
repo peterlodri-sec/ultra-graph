@@ -4,6 +4,34 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.33.0] — 2026-11-17
+
+### Changed
+- `ternary::dot_i8` now dispatches to the ARMv8.2 **DotProd** kernel when the
+  CPU has it, and to the scalar loop otherwise. The scalar loop is not a
+  consolation prize: LLVM auto-vectorises it into something *faster* than the
+  hand-written NEON intrinsics it replaces (341 ns vs 449 ns over 4096 lanes).
+
+  `examples/dot_i8_bench.rs`, same machine, identical sinks:
+
+| lanes | scalar | hand-written NEON | shipped |
+|---:|---:|---:|---:|
+| 16 | 3.71 ns | 2.90 ns | **2.48 ns** |
+| 64 | 7.81 ns | 4.50 ns | **4.52 ns** |
+| 256 | 24.96 ns | 11.81 ns | **9.40 ns** |
+| 4096 | 377.31 ns | 490.27 ns | **227.69 ns** |
+
+  The 4096 row is the point: the intrinsics were the *slow* option. DotProd is
+  2.66× faster than them at 256 lanes.
+
+### Added
+- `neon::dot_i8_neon` keeps the original `vmull_s8` + `vpadalq_s16` kernel,
+  compiled and tested but off the dispatch path, so "NEON by hand" stays
+  measurable and its parity with the scalar answer stays pinned.
+- `neon::has_dotprod` (cached runtime check, a relaxed atomic load rather than a
+  CPUID walk) and two tests: DotProd vs scalar for every length 0..80 -- which
+  is what covers the short tails -- and DotProd vs the NEON kernel.
+
 ## [0.32.0] — 2026-11-17
 
 ### Changed
