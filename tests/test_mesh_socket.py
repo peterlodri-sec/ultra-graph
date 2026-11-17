@@ -5,10 +5,12 @@ a machine with no network and cannot collide with a real node on :8423.
 """
 
 import socket
+import subprocess
+import sys
 
 from ultragraph.zerocpu import meshd
 from ultragraph.zerocpu.mesh import pack_announce
-from ultragraph.zerocpu.meshd import MeshListener, announce
+from ultragraph.zerocpu.meshd import MeshListener, _is_loopback, announce
 
 
 def test_meshd_module_imports():
@@ -108,3 +110,44 @@ def test_the_cli_listens_and_prints_json():
     peers = json.loads(out)
     assert [peer["name"] for peer in peers] == ["hearth"], out
     assert "1 peer(s)" in err, err
+
+
+# --------------------------------------------------------------------------
+# The loopback guard: binding beyond this machine is a decision, not a typo
+# --------------------------------------------------------------------------
+
+def test_loopback_hosts_are_recognised_however_they_are_spelled():
+    for host in ("127.0.0.1", "127.0.0.2", "localhost", "::1"):
+        assert _is_loopback(host), host
+
+
+def test_wildcard_and_routable_hosts_are_not_loopback():
+    for host in ("0.0.0.0", "::", "192.168.1.4", "10.0.0.1", "example.com",
+                 "127.0.0.1.example"):
+        assert not _is_loopback(host), host
+
+
+def test_a_wildcard_bind_is_refused_without_opting_in():
+    try:
+        MeshListener("0.0.0.0", 0)
+    except ValueError as err:
+        assert "allow_lan" in str(err)
+    else:
+        raise AssertionError("binding a wildcard must require allow_lan=True")
+
+
+def test_a_loopback_bind_needs_no_opt_in():
+    with MeshListener("127.0.0.1", 0) as listener:
+        assert listener.is_lan is False
+        assert listener.address[0].startswith("127.")
+
+
+def test_the_cli_reports_a_refusal_as_exit_2_not_a_traceback():
+    done = subprocess.run(
+        [sys.executable, "-m", "ultragraph.zerocpu.meshd", "listen",
+         "--port", "0", "--host", "0.0.0.0"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert done.returncode == 2, done
+    assert "Traceback" not in done.stderr
+    assert "allow_lan" in done.stderr

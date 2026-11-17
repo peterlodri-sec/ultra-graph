@@ -4,6 +4,22 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.30.1] — 2026-11-17
+
+### Changed
+- `MeshListener` refuses to bind anything that is reachable from other machines
+  unless the caller passes `allow_lan=True`; `meshd listen --allow-lan` is the
+  CLI spelling. The listener accepts any datagram that parses as a UGRD frame,
+  so an accidental `0.0.0.0` in a config file is a mesh anyone on the network
+  can inject peers into. Loopback detection uses `ipaddress`, so `127.0.0.2`
+  and `::1` count and `127.0.0.1.example` does not.
+- The CLI distinguishes a refusal (exit `2`) from a socket failure (exit `1`)
+  and prints the reason instead of a traceback.
+
+### Added
+- Five tests for the guard, including a subprocess run asserting exit `2` and no
+  `Traceback` on stderr.
+
 ## [0.30.0] — 2026-11-17
 
 ### Changed
