@@ -1,12 +1,13 @@
 //! Parity: `zerocpu::memnet` against the golden vectors from the Python reference.
 
-use zerocpu::memnet::MemNet;
+use zerocpu::memnet::{MemNet, RingMemNet};
 
 const VECTORS: &str = include_str!("fixtures/memnet_vectors.txt");
 
 #[test]
 fn matches_python_bit_for_bit() {
     let mut net = MemNet::new();
+    let mut ring = RingMemNet::new();
     let mut section = "";
     let mut expected_hex: Option<&str> = None;
     let mut merge_rows: Vec<&str> = Vec::new();
@@ -25,6 +26,35 @@ fn matches_python_bit_for_bit() {
             }
             "[hex]" => expected_hex = Some(raw),
             "[merge]" => merge_rows.push(raw),
+            "[ring]" => {
+                let n: Vec<i64> = raw.split_whitespace().map(|v| v.parse().unwrap()).collect();
+                assert_eq!(n.len(), 3, "{raw}");
+                assert!(ring.record(n[0], n[1], n[2] != 0).is_some(), "{raw}");
+            }
+            "[ring_expect]" => {
+                let fields: Vec<&str> = raw.split_whitespace().collect();
+                if fields.first() == Some(&"len") {
+                    assert_eq!(fields.len(), 2, "{raw}");
+                    assert_eq!(ring.len() as i64, fields[1].parse::<i64>().unwrap(), "{raw}");
+                    continue;
+                }
+                assert_eq!(fields.len(), 5, "{raw}");
+                let expected: i64 = fields[4].parse().unwrap();
+                match fields[0] {
+                    "variance" | "consensus" => {
+                        let now: i64 = fields[1].parse().unwrap();
+                        let half: i64 = fields[2].parse().unwrap();
+                        let rate: i64 = fields[3].parse().unwrap();
+                        let ours = if fields[0] == "variance" {
+                            ring.variance(now, half, rate).unwrap()
+                        } else {
+                            i64::from(ring.consensus(now, half, rate).unwrap())
+                        };
+                        assert_eq!(ours, expected, "{raw}");
+                    }
+                    other => panic!("unknown ring expectation {other:?}"),
+                }
+            }
             other => panic!("unknown section {other:?}"),
         }
     }
@@ -37,6 +67,7 @@ fn matches_python_bit_for_bit() {
     assert_eq!(ab.merge(&b), 2, "both right-hand keys are new");
     assert_eq!(ab.to_hex(), merge_rows[2]);
 
+    assert_eq!(ring.len(), 3, "ring fixture must record three slots");
     let mut ba = MemNet::from_hex(merge_rows[1]).unwrap();
     ba.merge(&a);
     assert_eq!(ba.to_hex(), merge_rows[2], "merge must be order independent");

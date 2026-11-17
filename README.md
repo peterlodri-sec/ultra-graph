@@ -244,9 +244,9 @@ p = partition(3, [(0, 1), (1, 2), (2, 0)], k=1)
 | `zerocpu/hope.py` | text → integer heat per lane → seeded world → tick → observer collapse; no floats, no keyword tables |
 | `zerocpu/trit.py` | Q-delta ternary quantizer (`A6P-15A`) + 16-plane bit layout that pops straight into NEON; `quantize`, `bitplanes`, `plane_parity` |
 | `zerocpu/router.py` | integer route selection — kernel / batch / model / plugin / deny — from position-weighted heat; `explain()` shows the counts, not the mood |
-| `zerocpu/memnet.py` | sequence-ordered associative memory (`(seq, value)` beats wall-clock): commutative, associative, idempotent merge |
+| `zerocpu/memnet.py` | sequence-ordered associative memory (`(seq, value)` beats wall-clock): commutative, associative, idempotent merge, plus `RingMemNet` — a fixed 64-slot ring with decaying amplitudes and anchors that never fade |
 | `zerocpu/mesh.py` | LAN peer announce frame (`UGRD` v1, 12-byte fixed header + 32-byte name) and its byte-stable merge |
-| `zerocpu/observer.py` | local clocks (`(tick - origin) * rate >> 16`), bounded integer decay, the Mahakala guard, and anchored memory that never fades |
+| `zerocpu/observer.py` | local clocks (`(tick - origin) * rate >> 16`), bounded integer decay, the closed-form Padé `e^-x`, the Mahakala guard, and anchored memory that never fades |
 | `rust/zerocpu/` | the same kernels in Rust (NEON on aarch64) + `world` (tick a `.ugmz`), `replay` (apply a `.pqq`) and `peers` (UDP announce) binaries |
 
 Parity is pinned by golden fixtures, so the Python and Rust halves cannot drift apart
@@ -293,6 +293,17 @@ from ultragraph.zerocpu import load_ugm, resonate
 r = resonate(load_ugm("world.ugmz"), "Difference is everywhere.", rounds=2)
 r.signal.trits      # (-1, 1, 1, -1)  -- lanes above/below the text's own mean
 r.collapse          # +1, 0 or -1: the observer's verdict on the settled state
+
+# Ternary Kleene guard + closed-form decay + a ring memory
+tnand(1, 1)                     # -1: two affirmations cannot both hold
+tnand(-1, 1)                    # +1: one denial releases the gate
+pade_exp_neg(65536)             # 24109 = e^-1 in Q16.16, no exp() anywhere
+
+ring = RingMemNet()
+ring.record(3 << 16, 0, anchor=True)
+ring.record(1 << 16, 0)
+ring.variance(4000, 10, 65536)  # 196608: only the anchor is left
+ring.consensus(4000, 10, 65536) # +1: love survives the half-lives
 r.trace             # ('0101ffff', '010200ff', '01030101') -- every round, in hex
 ```
 

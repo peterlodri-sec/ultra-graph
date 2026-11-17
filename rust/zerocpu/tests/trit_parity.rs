@@ -1,6 +1,9 @@
 //! Parity: `zerocpu::trit` against the golden vectors from the Python reference.
 
-use zerocpu::trit::{bitplanes, delta_for_level, from_planes, plane_parity, quantize, MAGNITUDE_MAX};
+use zerocpu::trit::{
+    bitplanes, delta_for_level, from_planes, plane_parity, quantize, tkand, tknot, tnand, tkor,
+    trit_of, MAGNITUDE_MAX,
+};
 
 const VECTORS: &str = include_str!("fixtures/trit_vectors.txt");
 
@@ -61,9 +64,19 @@ fn matches_python_bit_for_bit() {
                 let back = from_planes(&planes).unwrap();
                 assert_eq!(&back[..values.len()], &expected[..], "round trip for {raw}");
             }
+            "[kleene]" => {
+                let n: Vec<i64> = raw.split_whitespace().map(|v| v.parse().unwrap()).collect();
+                assert_eq!(n.len(), 6, "{raw}");
+                assert_eq!(i64::from(tnand(n[0], n[1]).unwrap()), n[2], "{raw}");
+                assert_eq!(i64::from(tkand(n[0], n[1]).unwrap()), n[3], "{raw}");
+                assert_eq!(i64::from(tkor(n[0], n[1]).unwrap()), n[4], "{raw}");
+                assert_eq!(i64::from(tknot(n[0]).unwrap()), n[5], "{raw}");
+            }
             other => panic!("unknown section {other:?}"),
         }
         checked += 1;
     }
-    assert!(checked >= 25, "only checked {checked} rows");
+    assert_eq!(trit_of(-7), -1);
+    assert_eq!(trit_of(9), 1);
+    assert!(checked >= 35, "only checked {checked} rows");
 }

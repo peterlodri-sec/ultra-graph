@@ -4,6 +4,43 @@ All notable changes to this project. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.26.0] — 2026-11-16
+
+### Added
+- Kleene ternary logic in `zerocpu.trit` + Rust `zerocpu::trit`: `tnand(a, b) =
+  -min(a, b)`, `tkand`, `tkor`, `tknot`, `trit_of`.  `1 NAND 1 = -1`, `-1 NAND x
+  = +1`, and `0` propagates — an undecided operand can never be resolved into a
+  definite answer.  Commutative, associative, branch-free, and validated:
+  non-trits are rejected instead of silently coerced (`tknot(1.0)` is a
+  `TypeError`, not `-1`).
+- `pade_exp_neg(x_q16)` — `e^-x` via a `[3/3]` Padé approximant, integer-only:
+  split `x = k*ln2 + r`, then `e^-x = 2^-k * P(-r)/P(r)` with `P(t) = 120 + 60t +
+  12t^2 + t^3`.  No loop and no `exp()`, so `e^-1` is exactly `24109` on every
+  machine; agreement with the analytic value is within `2e-5` (16-bit
+  quantization, not a float error).
+- `decay_pade(variance, elapsed, half_life)` — the same half-life as `decay()`
+  but closed-form: any `elapsed` costs the same few multiplications, so a
+  decade-long gap cannot become a 4096-step loop.  `half_life <= 0` is an error.
+- `RingMemNet` (Python + Rust) — 64 slots, `MEMNET_RING`, `RingSlot` with a
+  `.trit` property, `record(amp_q16, born_tick, anchor=)`, `variance(now,
+  half_life, rate_q16)`, `consensus(...)`.  Two fixes over the sketch: a ring
+  full of anchors returns `None` rather than silently dropping the write while
+  still returning an id, and placement scans from the cursor to the first free
+  or non-anchor slot so eviction order is a function of the writes.
+- `examples/caveman_ultra_demo.py` gained step `[7]`: the guard, `e^-1`, and a
+  ring whose variance collapses from `131072` to `196608` while the anchored
+  memory holds the verdict at `+1`.
+- Fixtures gained `[kleene]`, `[pade]`, `[pade_decay]`, `[ring]` and
+  `[ring_expect]` sections; Python suite 212 tests, Rust 69 across 13 binaries.
+
+### Not copied from the source sketch
+- A separate `Trit` enum: a trit here is `i8`, and the Kleene ops were added to
+  the existing module rather than beside it.
+- `>> k.min(32)` (a shift by a signed value) and the 40-nat guard read as a
+  weight: `PADE_X_MAX` means "below one ulp", and the shift amount is bounded by
+  construction.
+- `f32` anywhere in the decay path.
+
 ## [0.25.0] — 2026-11-16
 
 ### Added

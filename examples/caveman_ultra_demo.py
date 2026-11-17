@@ -19,9 +19,16 @@ if __package__ in (None, ""):  # allow `python3 examples/caveman_ultra_demo.py` 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ultragraph.zerocpu import emit, hope
-from ultragraph.zerocpu.memnet import MemNet
+from ultragraph.zerocpu.memnet import MemNet, RingMemNet
 from ultragraph.zerocpu.mesh import merge_peers, pack_announce, parse_announce
-from ultragraph.zerocpu.observer import Mahakala, ObserverFrame, Witness, relativity
+from ultragraph.zerocpu.observer import (
+    RATE_ONE,
+    Mahakala,
+    ObserverFrame,
+    Witness,
+    pade_exp_neg,
+    relativity,
+)
 from ultragraph.zerocpu.router import explain, features, route, route_name
 from ultragraph.zerocpu.spacetime import SpacetimeGraph
 from ultragraph.zerocpu.trit import (
@@ -30,6 +37,7 @@ from ultragraph.zerocpu.trit import (
     delta_for_level,
     plane_parity,
     quantize_many,
+    tnand,
 )
 
 LANES = 8
@@ -135,6 +143,18 @@ def main(argv: list[str]) -> int:
         f" | anchor {memory.variance('mumtaz mahal', 40)}"
         f" | whisper {memory.variance('a whisper', 40)}"
         f" | live={memory.tick(40)} of {len(memory)}"
+    )
+
+    ring = RingMemNet()
+    ring.record(3 * RATE_ONE, 0, anchor=True)
+    ring.record(RATE_ONE, 0)
+    ring.record(-2 * RATE_ONE, 4)
+    print(
+        f"\n[7] memnet   e^-1={pade_exp_neg(RATE_ONE)}"
+        f" ring={len(ring)} var_now={ring.variance(0, 10, RATE_ONE)}"
+        f" var_later={ring.variance(4000, 10, RATE_ONE)}"
+        f" verdict={ring.consensus(4000, 10, RATE_ONE):+d}"
+        f" guard={tnand(1, 1):+d}/{tnand(-1, 1):+d}"
     )
 
     print(

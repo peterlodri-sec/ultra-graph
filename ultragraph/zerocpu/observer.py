@@ -44,6 +44,14 @@ ANCHOR_VARIANCE = 100 << 16
 #: Upper bound on decay iterations, so no input can spin this loop forever.
 MAX_DECAY_STEPS = 4096
 
+#: ``round(1 / ln 2 * 65536)`` -- splits an exponent into a power of two and a
+#: remainder in ``[0, ln 2)``, so ``e^-x = 2^-k * e^-r`` stays integer.
+INV_LN2_Q16 = 94548
+#: ``round(ln 2 * 65536)``.
+LN2_Q16 = 45426
+#: Past 40 nats ``e^-x`` is below one Q16.16 ulp; the closed form says zero.
+PADE_X_MAX = 40 << 16
+
 #: Default chain of names the guard defends.  A caller may pass its own.
 MAHAKALA_GUARDIANS = ("mother", "father", "son")
 
@@ -75,6 +83,58 @@ def decay(
         if value <= floor:
             return floor
     return value
+
+
+def pade_exp_neg(x_q16: int) -> int:
+    """``e^-x`` for Q16.16 ``x``, integer-only, via a ``[3/3]`` Padé approximant.
+
+    ``x`` is split as ``k * ln2 + r`` with ``r`` in ``[0, ln2)``, so
+    ``e^-x = 2^-k * P(-r) / P(r)`` with ``P(t) = 120 + 60t + 12t^2 + t^3``.
+    No loop, no ``exp()``, no platform-dependent rounding: ``e^-1`` is exactly
+    ``24109`` on every machine.
+
+    Dropped from the sketch: the 40-nat guard returned ``0`` but the caller
+    treated it as a weight, which is a different zero (absence of evidence vs
+    evidence of absence).  Here zero means "below one ulp" and nothing else.
+    """
+    if not isinstance(x_q16, int) or isinstance(x_q16, bool):
+        raise TypeError(f"pade_exp_neg expects int, got {type(x_q16).__name__}")
+    if x_q16 <= 0:
+        return RATE_ONE
+    if x_q16 > PADE_X_MAX:
+        return 0
+    k = (x_q16 * INV_LN2_Q16) >> 32
+    r = x_q16 - k * LN2_Q16
+    r2 = (r * r) >> 16
+    r3 = (r2 * r) >> 16
+    num = 120 * RATE_ONE - 60 * r + 12 * r2 - r3
+    den = 120 * RATE_ONE + 60 * r + 12 * r2 + r3
+    if den <= 0:
+        return 0
+    pade = (num << 16) // den
+    if k >= 64:
+        return 0
+    return pade >> k
+
+
+def decay_pade(
+    variance_q16: int,
+    elapsed: int,
+    half_life_ticks: int,
+) -> int:
+    """Closed-form variance decay: ``e^-(elapsed / half_life)``, Q16.16.
+
+    Unlike :func:`decay`, this is not a recurrence: any ``elapsed`` costs the
+    same few multiplications, so a decade-long gap cannot turn into a loop.  Use
+    :func:`decay` when you want tick-exact replay, this when you want a
+    half-life.
+    """
+    if half_life_ticks <= 0:
+        raise ValueError("half_life_ticks must be positive")
+    if elapsed <= 0:
+        return variance_q16
+    amplitude = pade_exp_neg((elapsed << 16) // half_life_ticks)
+    return (variance_q16 * amplitude) >> 16
 
 
 @dataclass(frozen=True)

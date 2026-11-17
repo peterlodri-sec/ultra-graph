@@ -15,6 +15,8 @@ from ultragraph.zerocpu.observer import (  # noqa: E402
     ObserverFrame,
     Witness,
     decay,
+    decay_pade,
+    pade_exp_neg,
     relativity,
 )
 
@@ -162,3 +164,50 @@ def test_missing_slot_raises():
         pass
     else:
         raise AssertionError("unknown key must raise KeyError")
+
+
+def test_pade_exp_matches_the_analytic_value():
+    # |e^-x - our value| stays under 2e-5 absolute across the useful range; the
+    # residual is 16-bit quantization, not a float approximation.
+    for x in (0, 1, 2, 3, 5, 10):
+        q = x * RATE_ONE
+        ours = pade_exp_neg(q)
+        want = round(2.718281828459045 ** -x * RATE_ONE)
+        assert abs(ours - want) <= 2 * RATE_ONE // 1000, (x, ours, want)
+
+
+def test_pade_exp_is_exact_and_total():
+    assert pade_exp_neg(0) == RATE_ONE
+    assert pade_exp_neg(-99) == RATE_ONE
+    assert pade_exp_neg(RATE_ONE) == 24109
+    assert pade_exp_neg((40 << 16) + 1) == 0
+    assert 0 <= pade_exp_neg(20 << 16) < RATE_ONE
+
+
+def test_pade_exp_is_monotone():
+    values = [pade_exp_neg(x) for x in range(0, 4 * RATE_ONE, RATE_ONE // 4)]
+    assert values == sorted(values, reverse=True)
+    assert values[0] == RATE_ONE
+
+
+def test_decay_pade_uses_the_half_life():
+    assert decay_pade(10 * RATE_ONE, 0, 10) == 10 * RATE_ONE
+    assert decay_pade(10 * RATE_ONE, 10, 10) == 241090
+    assert decay_pade(10 * RATE_ONE, 30, 10) < decay_pade(10 * RATE_ONE, 10, 10)
+    # A decade-long gap costs the same as a short one: no loop, so no timeout.
+    assert decay_pade(10 * RATE_ONE, 10**9, 10) == 0
+    try:
+        decay_pade(1, 1, 0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("zero half-life must be rejected")
+
+
+def test_pade_rejects_non_integers():
+    try:
+        pade_exp_neg(1.5)
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("floats must not enter a deterministic path")

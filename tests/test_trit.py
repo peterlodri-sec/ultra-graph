@@ -13,6 +13,11 @@ from ultragraph.zerocpu.trit import (
     plane_parity,
     quantize,
     quantize_many,
+    tkand,
+    tknot,
+    tkor,
+    tnand,
+    trit_of,
 )
 
 
@@ -139,3 +144,36 @@ def test_plane_parity_is_a_16_bit_xor_fold():
     planes = [0xFFFF, 0x0001] + [0] * (A6P_PLANES - 2)
     assert plane_parity(planes) == 0xFFFE
     assert plane_parity([0] * A6P_PLANES) == 0
+
+
+def test_tnand_is_kleene_negated_min():
+    assert tnand(1, 1) == -1
+    assert tnand(1, 0) == 0
+    assert tnand(0, 0) == 0
+    assert tnand(-1, 1) == 1
+    assert tnand(-1, -1) == 1
+    assert tnand(1, -1) == tnand(-1, 1)
+
+
+def test_kleene_duals_are_consistent_with_nand():
+    for a in (-1, 0, 1):
+        for b in (-1, 0, 1):
+            assert tkand(a, b) == -tnand(a, b)
+            assert tkor(a, b) == tknot(tkand(tknot(a), tknot(b)))
+            assert tknot(tknot(a)) == a
+            assert tnand(a, b) == tnand(b, a)
+
+
+def test_kleene_rejects_non_trits():
+    for call in (lambda: tnand(2, 0), lambda: tnand(0, -2), lambda: tknot(1.0)):
+        try:
+            call()
+        except (ValueError, TypeError):
+            pass
+        else:
+            raise AssertionError("a non-trit must be rejected")
+
+
+def test_trit_of_classifies_signs():
+    assert [trit_of(v) for v in (-7, 0, 9)] == [-1, 0, 1]
+    assert trit_of(-0) == 0

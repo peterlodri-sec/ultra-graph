@@ -32,6 +32,8 @@ pub enum TritError {
     Width(usize),
     /// The plane list was not [`A6P_PLANES`] long.
     Planes(usize),
+    /// A Kleene operand was not -1, 0 or +1.
+    NotATrit(i64),
 }
 
 impl fmt::Display for TritError {
@@ -42,6 +44,9 @@ impl fmt::Display for TritError {
             }
             TritError::Delta(delta) => write!(f, "delta must be >= 0, got {delta}"),
             TritError::Width(width) => write!(f, "at most {MAX_LANES} lanes, got {width}"),
+            TritError::NotATrit(value) => {
+                write!(f, "trit must be -1, 0 or +1, got {value}")
+            }
             TritError::Planes(count) => {
                 write!(f, "expected {A6P_PLANES} planes, got {count}")
             }
@@ -165,6 +170,48 @@ pub fn plane_parity(planes: &[u16]) -> u16 {
     planes.iter().fold(0u16, |acc, &word| acc ^ word)
 }
 
+/// The sign of an integer weight as a trit: -1, 0 or +1.
+pub fn trit_of(value: i64) -> i8 {
+    match value.cmp(&0) {
+        std::cmp::Ordering::Less => TRIT_NEG,
+        std::cmp::Ordering::Equal => TRIT_ZERO,
+        std::cmp::Ordering::Greater => TRIT_ONE,
+    }
+}
+
+fn require_trit(value: i64) -> Result<i8, TritError> {
+    match value {
+        -1 => Ok(TRIT_NEG),
+        0 => Ok(TRIT_ZERO),
+        1 => Ok(TRIT_ONE),
+        other => Err(TritError::NotATrit(other)),
+    }
+}
+
+/// Kleene NAND over trits: `-min(a, b)`.
+///
+/// `1 NAND 1 = -1` (two affirmations cannot both hold), `-1 NAND x = +1` (one
+/// denial releases the gate), and `0` propagates: an undecided input can never
+/// be resolved to a definite answer.
+pub fn tnand(a: i64, b: i64) -> Result<i8, TritError> {
+    Ok(-require_trit(a)?.min(require_trit(b)?))
+}
+
+/// Kleene AND: `min(a, b)` -- the dual of [`tnand`].
+pub fn tkand(a: i64, b: i64) -> Result<i8, TritError> {
+    Ok(require_trit(a)?.min(require_trit(b)?))
+}
+
+/// Kleene OR: `max(a, b)`.
+pub fn tkor(a: i64, b: i64) -> Result<i8, TritError> {
+    Ok(require_trit(a)?.max(require_trit(b)?))
+}
+
+/// Kleene negation: `-a`.  `Zero` stays `Zero` -- undecided is not false.
+pub fn tknot(a: i64) -> Result<i8, TritError> {
+    Ok(-require_trit(a)?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,5 +263,31 @@ mod tests {
         assert_eq!(bitplanes(&[0; 17]), Err(TritError::Width(17)));
         assert_eq!(from_planes(&[0; 15]), Err(TritError::Planes(15)));
         assert_eq!(plane_parity(&[0u16; 16]), 0);
+    }
+
+    #[test]
+    fn kleene_guard_is_negated_min() {
+        assert_eq!(tnand(1, 1), Ok(-1));
+        assert_eq!(tnand(1, 0), Ok(0));
+        assert_eq!(tnand(-1, 1), Ok(1));
+        assert_eq!(tnand(-1, -1), Ok(1));
+        assert_eq!(tkand(1, 0), tkand(0, 1));
+        assert_eq!(tkor(-1, 0), Ok(0));
+        assert_eq!(tknot(0), Ok(0));
+        assert_eq!(tknot(tknot(1).unwrap() as i64), Ok(1));
+        for a in -1..=1i64 {
+            for b in -1..=1i64 {
+                assert_eq!(tkand(a, b), Ok(-tnand(a, b).unwrap()));
+                assert_eq!(
+                    tkor(a, b),
+                    tknot(tkand(tknot(a).unwrap() as i64, tknot(b).unwrap() as i64).unwrap() as i64)
+                );
+            }
+        }
+        assert_eq!(tnand(2, 0), Err(TritError::NotATrit(2)));
+        assert_eq!(tknot(-3), Err(TritError::NotATrit(-3)));
+        assert_eq!(trit_of(-7), TRIT_NEG);
+        assert_eq!(trit_of(0), TRIT_ZERO);
+        assert_eq!(trit_of(9), TRIT_ONE);
     }
 }

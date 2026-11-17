@@ -2,11 +2,14 @@
 
 from ultragraph.zerocpu import memnet
 from ultragraph.zerocpu.memnet import (
+    MEMNET_RING,
     MEMNET_SLOTS,
     MemNet,
     MemNetEntry,
+    RingMemNet,
     key_id,
 )
+from ultragraph.zerocpu.observer import RATE_ONE
 
 
 def test_memnet_module_imports():
@@ -132,3 +135,47 @@ def test_from_hex_rejects_junk():
 
 def test_from_hex_empty_is_empty():
     assert len(MemNet.from_hex("")) == 0
+
+
+def test_ring_records_and_counts():
+    ring = RingMemNet()
+    assert ring.record(3 * RATE_ONE, 0, anchor=True) == 1
+    assert ring.record(RATE_ONE, 0) == 2
+    assert len(ring) == 2
+    assert [slot.trit for slot in ring.slots()] == [1, 1]
+
+
+def test_ring_anchor_outlives_every_half_life():
+    ring = RingMemNet()
+    ring.record(3 * RATE_ONE, 0, anchor=True)
+    ring.record(RATE_ONE, 0)
+    assert ring.variance(0, 10) == 4 * RATE_ONE
+    assert ring.variance(10**9, 10) == 3 * RATE_ONE
+    assert ring.consensus(10**9, 10) == 1
+
+
+def test_ring_consensus_flips_without_an_anchor():
+    ring = RingMemNet()
+    ring.record(-2 * RATE_ONE, 0)
+    assert ring.consensus(0, 10) == -1
+    assert ring.consensus(4, 10) == 0 or ring.consensus(4, 10) == -1
+
+
+def test_ring_refuses_a_full_ring_of_anchors():
+    ring = RingMemNet()
+    for tick in range(MEMNET_RING):
+        assert ring.record(RATE_ONE, tick, anchor=True) is not None
+    assert ring.record(RATE_ONE, 99, anchor=True) is None
+    assert len(ring) == MEMNET_RING
+
+
+def test_ring_evicts_the_oldest_non_anchor():
+    ring = RingMemNet()
+    ring.record(1 * RATE_ONE, 0, anchor=True)
+    for tick in range(1, MEMNET_RING):
+        ring.record(RATE_ONE, tick)
+    before = len(ring)
+    ring.record(RATE_ONE, 999)
+    assert len(ring) == before == MEMNET_RING
+    assert any(slot.born_tick == 999 for slot in ring.slots())
+    assert sum(1 for slot in ring.slots() if slot.anchor) == 1

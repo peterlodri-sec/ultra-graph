@@ -1,6 +1,8 @@
 //! Parity: `zerocpu::observer` against the golden vectors from Python.
 
-use zerocpu::observer::{decay_default, Mahakala, ObserverFrame, Witness};
+use zerocpu::observer::{
+    decay_default, decay_pade, pade_exp_neg, Mahakala, ObserverFrame, Witness,
+};
 
 const VECTORS: &str = include_str!("fixtures/observer_vectors.txt");
 
@@ -48,6 +50,16 @@ fn matches_python_bit_for_bit() {
                 memory.remember("k", n[2], n[0], n[1] != 0).unwrap();
                 assert_eq!(memory.variance("k", n[3]), Some(n[4]), "{raw}");
                 assert_eq!(memory.anchors().len(), usize::from(n[1] != 0), "{raw}");
+            }
+            "[pade]" => {
+                let n: Vec<i64> = raw.split_whitespace().map(|v| v.parse().unwrap()).collect();
+                assert_eq!(n.len(), 2, "{raw}");
+                assert_eq!(pade_exp_neg(n[0]), n[1], "{raw}");
+            }
+            "[pade_decay]" => {
+                let n: Vec<i64> = raw.split_whitespace().map(|v| v.parse().unwrap()).collect();
+                assert_eq!(n.len(), 4, "{raw}");
+                assert_eq!(decay_pade(n[0], n[1], n[2]).unwrap(), n[3], "{raw}");
             }
             other => panic!("unknown section {other:?}"),
         }

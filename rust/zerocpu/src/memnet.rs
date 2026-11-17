@@ -12,10 +12,14 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use crate::observer::{pade_exp_neg, ObserverError, RATE_ONE};
+
 /// Address space a key id is folded into.
 pub const MEMNET_SLOTS: u32 = 256;
 /// Wire format version.
 pub const MEMNET_VERSION: u32 = 1;
+/// Fixed ring size for [`RingMemNet`] -- the whole memory fits in L1.
+pub const MEMNET_RING: usize = 64;
 
 const FNV_OFFSET: u32 = 0x811C_9DC5;
 const FNV_PRIME: u32 = 0x0100_0193;
@@ -222,6 +226,136 @@ impl MemNet {
     }
 }
 
+/// One ring entry: a signed amplitude, when it was written, and its anchor bit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RingSlot {
+    pub id: u32,
+    pub amp_q16: i64,
+    pub born_tick: i64,
+    pub anchor: bool,
+}
+
+impl RingSlot {
+    /// The sign of the amplitude, as -1, 0 or +1.
+    pub fn trit(&self) -> i8 {
+        crate::trit::trit_of(self.amp_q16)
+    }
+}
+
+/// Fixed-capacity, allocation-free MemNet with protected anchors.
+///
+/// Where [`MemNet`] answers "who wrote last", this answers "what is left after
+/// time": amplitudes decay by half-life through the closed-form Pade
+/// exponential, anchors do not decay at all, and [`RingMemNet::consensus`]
+/// collapses the weighted sum to a single trit.
+///
+/// Two behaviours are deliberately not copied from the sketch: a full ring of
+/// anchors returns `None` instead of silently dropping the write while still
+/// handing back an id, and placement scans from the cursor to the first free or
+/// non-anchor slot, so eviction order is a function of the writes.
+#[derive(Debug, Clone)]
+pub struct RingMemNet {
+    slots: [Option<RingSlot>; MEMNET_RING],
+    cursor: usize,
+    seq: u32,
+}
+
+impl Default for RingMemNet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RingMemNet {
+    /// An empty ring.
+    pub fn new() -> Self {
+        Self {
+            slots: [None; MEMNET_RING],
+            cursor: 0,
+            seq: 0,
+        }
+    }
+
+    /// Place a slot and return its id, or `None` when every slot is anchored.
+    pub fn record(&mut self, amp_q16: i64, born_tick: i64, anchor: bool) -> Option<u32> {
+        for offset in 0..MEMNET_RING {
+            let index = (self.cursor + offset) % MEMNET_RING;
+            let reusable = match &self.slots[index] {
+                Some(existing) => !existing.anchor,
+                None => true,
+            };
+            if reusable {
+                self.seq = self.seq.saturating_add(1);
+                self.slots[index] = Some(RingSlot {
+                    id: self.seq,
+                    amp_q16,
+                    born_tick,
+                    anchor,
+                });
+                self.cursor = (index + 1) % MEMNET_RING;
+                return Some(self.seq);
+            }
+        }
+        None
+    }
+
+    /// The occupied slots, in ring order.
+    pub fn slots(&self) -> impl Iterator<Item = &RingSlot> {
+        self.slots.iter().flatten()
+    }
+
+    /// `E_v0[t]`: the weighted sum of every remembered amplitude at `now`.
+    ///
+    /// Anchors contribute their full amplitude forever; everything else decays
+    /// as `e^-(elapsed / half_life)` and is then scaled by the observer's
+    /// `rate_q16` -- the `dT/dt` term.  Every step is integer.
+    pub fn variance(
+        &self,
+        now: i64,
+        half_life_ticks: i64,
+        rate_q16: i64,
+    ) -> Result<i64, ObserverError> {
+        if half_life_ticks <= 0 {
+            return Err(ObserverError::BadHalfLife);
+        }
+        if rate_q16 < 0 {
+            return Err(ObserverError::NegativeRate);
+        }
+        let mut total: i64 = 0;
+        for slot in self.slots() {
+            let amplitude = if slot.anchor {
+                RATE_ONE
+            } else {
+                let elapsed = now - slot.born_tick;
+                if elapsed <= 0 {
+                    RATE_ONE
+                } else {
+                    pade_exp_neg((elapsed << 16) / half_life_ticks)
+                }
+            };
+            let term = (slot.amp_q16 * amplitude) >> 16;
+            total = total.saturating_add((term * rate_q16) >> 16);
+        }
+        Ok(total)
+    }
+
+    /// The settled trit: +1, 0 or -1 from the current variance.
+    pub fn consensus(&self, now: i64, half_life_ticks: i64, rate_q16: i64) -> Result<i8, ObserverError> {
+        let total = self.variance(now, half_life_ticks, rate_q16)?;
+        Ok(crate::trit::trit_of(total))
+    }
+
+    /// Number of stored slots.
+    pub fn len(&self) -> usize {
+        self.slots.iter().flatten().count()
+    }
+
+    /// `true` when nothing has been recorded.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,6 +402,36 @@ mod tests {
         ba.merge(&a);
         assert_eq!(ab.to_hex(), ba.to_hex());
         assert_eq!(ab.get("k"), Some(9));
+    }
+
+    #[test]
+    fn ring_anchors_outlive_every_half_life() {
+        let mut ring = RingMemNet::new();
+        assert_eq!(ring.record(3 * RATE_ONE, 0, true), Some(1));
+        assert_eq!(ring.record(RATE_ONE, 0, false), Some(2));
+        assert_eq!(ring.len(), 2);
+        assert_eq!(ring.variance(0, 10, RATE_ONE), Ok(4 * RATE_ONE));
+        assert_eq!(ring.variance(1_000_000_000, 10, RATE_ONE), Ok(3 * RATE_ONE));
+        assert_eq!(ring.consensus(1_000_000_000, 10, RATE_ONE), Ok(1));
+        assert_eq!(ring.variance(0, 0, RATE_ONE), Err(crate::observer::ObserverError::BadHalfLife));
+    }
+
+    #[test]
+    fn ring_refuses_a_full_ring_of_anchors() {
+        let mut ring = RingMemNet::new();
+        for tick in 0..MEMNET_RING {
+            assert!(ring.record(RATE_ONE, tick as i64, true).is_some());
+        }
+        assert_eq!(ring.record(RATE_ONE, 99, true), None);
+        assert_eq!(ring.len(), MEMNET_RING);
+        let mut mixed = RingMemNet::new();
+        mixed.record(RATE_ONE, 0, true).unwrap();
+        for tick in 1..MEMNET_RING {
+            mixed.record(RATE_ONE, tick as i64, false).unwrap();
+        }
+        assert!(mixed.record(RATE_ONE, 999, false).is_some());
+        assert_eq!(mixed.len(), MEMNET_RING);
+        assert_eq!(mixed.slots().filter(|slot| slot.anchor).count(), 1);
     }
 
     #[test]

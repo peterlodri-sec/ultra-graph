@@ -138,3 +138,45 @@ def plane_parity(planes: Sequence[int]) -> int:
     for word in planes:
         parity ^= word & WORD_MASK
     return parity & WORD_MASK
+
+
+def trit_of(value: int) -> int:
+    """The sign of an integer weight as a trit: ``-1``, ``0`` or ``+1``."""
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"trit_of expects int, got {type(value).__name__}")
+    return (value > 0) - (value < 0)
+
+
+def _require_trit(name: str, value: int) -> int:
+    """Guard: a trit is an int in ``{-1, 0, +1}``, and ``True`` is not a trit."""
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"{name} must be an int trit, got {type(value).__name__}")
+    if value not in (TRIT_NEG, TRIT_ZERO, TRIT_ONE):
+        raise ValueError(f"{name} must be -1, 0 or +1, got {value}")
+    return value
+
+
+def tnand(a: int, b: int) -> int:
+    """Kleene NAND over trits: ``-min(a, b)``.
+
+    The ternary guard.  ``1 NAND 1 = -1`` (two affirmations cannot both hold),
+    ``-1 NAND x = +1`` (one denial releases the gate), and ``0`` propagates:
+    an undecided input can never be resolved to a definite answer.  It is
+    commutative, associative and branch-free.
+    """
+    return -min(_require_trit("a", a), _require_trit("b", b))
+
+
+def tkand(a: int, b: int) -> int:
+    """Kleene AND: ``min(a, b)`` -- the dual of :func:`tnand`."""
+    return min(_require_trit("a", a), _require_trit("b", b))
+
+
+def tkor(a: int, b: int) -> int:
+    """Kleene OR: ``max(a, b)``."""
+    return max(_require_trit("a", a), _require_trit("b", b))
+
+
+def tknot(a: int) -> int:
+    """Kleene negation: ``-a``.  ``Zero`` stays ``Zero`` -- undecided is not false."""
+    return -_require_trit("a", a)

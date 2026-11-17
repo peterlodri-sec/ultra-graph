@@ -22,6 +22,13 @@ pub const VARIANCE_FLOOR: i64 = 6554;
 pub const ANCHOR_VARIANCE: i64 = 100 << 16;
 /// Upper bound on decay iterations.
 pub const MAX_DECAY_STEPS: i64 = 4096;
+/// `round(1 / ln 2 * 65536)`: splits an exponent into a power of two and a
+/// remainder in `[0, ln 2)`, so `e^-x = 2^-k * e^-r` stays integer.
+pub const INV_LN2_Q16: i64 = 94548;
+/// `round(ln 2 * 65536)`.
+pub const LN2_Q16: i64 = 45426;
+/// Past 40 nats `e^-x` is below one Q16.16 ulp; the closed form says zero.
+pub const PADE_X_MAX: i64 = 40 << 16;
 
 /// Default chain of names the guard defends.
 pub const GUARDIANS: [&str; 3] = ["mother", "father", "son"];
@@ -35,6 +42,8 @@ pub enum ObserverError {
     NegativeSpan,
     /// A decay factor outside `[0, RATE_ONE]` would grow or explode.
     BadDecay,
+    /// A half-life of zero ticks has no meaning.
+    BadHalfLife,
 }
 
 impl fmt::Display for ObserverError {
@@ -43,6 +52,7 @@ impl fmt::Display for ObserverError {
             Self::NegativeRate => "rate_q16 must be non-negative",
             Self::NegativeSpan => "span must be non-negative",
             Self::BadDecay => "decay_q16 must be within [0, RATE_ONE]",
+            Self::BadHalfLife => "half_life_ticks must be positive",
         };
         f.write_str(text)
     }
@@ -75,6 +85,45 @@ pub fn decay(variance_q16: i64, elapsed: i64, decay_q16: i64, floor: i64) -> i64
 /// Convenience: decay with the module defaults.
 pub fn decay_default(variance_q16: i64, elapsed: i64) -> i64 {
     decay(variance_q16, elapsed, DECAY_Q16, VARIANCE_FLOOR)
+}
+
+/// `e^-x` for Q16.16 `x`, integer-only, via a `[3/3]` Pade approximant.
+///
+/// `x` is split as `k * ln2 + r` with `r` in `[0, ln2)`, so
+/// `e^-x = 2^-k * P(-r) / P(r)` with `P(t) = 120 + 60t + 12t^2 + t^3`.  No loop
+/// and no `exp()`: `e^-1` is exactly `24109` on every machine.
+pub fn pade_exp_neg(x_q16: i64) -> i64 {
+    if x_q16 <= 0 {
+        return RATE_ONE;
+    }
+    if x_q16 > PADE_X_MAX {
+        return 0;
+    }
+    let k = (x_q16 * INV_LN2_Q16) >> 32;
+    let r = x_q16 - k * LN2_Q16;
+    let r2 = (r * r) >> 16;
+    let r3 = (r2 * r) >> 16;
+    let num = 120 * RATE_ONE - 60 * r + 12 * r2 - r3;
+    let den = 120 * RATE_ONE + 60 * r + 12 * r2 + r3;
+    if den <= 0 || k >= 64 {
+        return 0;
+    }
+    ((num << 16) / den) >> k
+}
+
+/// Closed-form variance decay: `e^-(elapsed / half_life)`, Q16.16.
+///
+/// Unlike [`decay`] this is not a recurrence: any `elapsed` costs the same few
+/// multiplications, so a decade-long gap cannot turn into a loop.
+pub fn decay_pade(variance_q16: i64, elapsed: i64, half_life_ticks: i64) -> Result<i64, ObserverError> {
+    if half_life_ticks <= 0 {
+        return Err(ObserverError::BadHalfLife);
+    }
+    if elapsed <= 0 {
+        return Ok(variance_q16);
+    }
+    let amplitude = pade_exp_neg((elapsed << 16) / half_life_ticks);
+    Ok((variance_q16 * amplitude) >> 16)
 }
 
 /// A local clock: `local = (world_tick - origin_world) * rate >> 16`.

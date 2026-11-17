@@ -150,3 +150,108 @@ class MemNet:
 
     def __repr__(self) -> str:
         return f"MemNet({len(self._entries)} entries)"
+
+
+#: Fixed ring size for :class:`RingMemNet` -- the whole memory fits in L1.
+MEMNET_RING = 64
+
+
+@dataclass
+class RingSlot:
+    """One ring entry: a signed amplitude, when it was written, and its anchor bit."""
+
+    id: int
+    amp_q16: int
+    born_tick: int
+    anchor: bool
+
+    @property
+    def trit(self) -> int:
+        """The sign of the amplitude, as ``-1``, ``0`` or ``+1``."""
+        return (self.amp_q16 > 0) - (self.amp_q16 < 0)
+
+
+class RingMemNet:
+    """Fixed-capacity, allocation-free MemNet with protected anchors.
+
+    Where :class:`MemNet` answers "who wrote last", this answers "what is left
+    after time": amplitudes decay by half-life through the closed-form Padé
+    exponential, anchors do not decay at all, and :meth:`consensus` collapses
+    the weighted sum to a single trit.
+
+    Two behaviours are deliberately *not* copied from the sketch:
+
+    * a full ring of anchors returns ``None`` instead of silently dropping the
+      write while still handing back an id -- a memory that lies about what it
+      kept is worse than one that says no;
+    * placement scans from the cursor and stops at the first free or non-anchor
+      slot, so the eviction order is a function of the writes, not of the ring
+      walk that happened to run.
+    """
+
+    __slots__ = ("_cursor", "_seq", "_slots")
+
+    def __init__(self) -> None:
+        self._slots: list[RingSlot | None] = [None] * MEMNET_RING
+        self._cursor = 0
+        self._seq = 0
+
+    def record(self, amp_q16: int, born_tick: int, *, anchor: bool = False) -> int | None:
+        """Place a slot and return its id, or ``None`` when every slot is anchored."""
+        if not isinstance(amp_q16, int) or isinstance(amp_q16, bool):
+            raise TypeError(f"record expects an int amplitude, got {type(amp_q16).__name__}")
+        for offset in range(MEMNET_RING):
+            index = (self._cursor + offset) % MEMNET_RING
+            existing = self._slots[index]
+            if existing is None or not existing.anchor:
+                self._seq += 1
+                self._slots[index] = RingSlot(
+                    id=self._seq,
+                    amp_q16=amp_q16,
+                    born_tick=born_tick,
+                    anchor=bool(anchor),
+                )
+                self._cursor = (index + 1) % MEMNET_RING
+                return self._seq
+        return None
+
+    def slots(self) -> tuple[RingSlot, ...]:
+        """The occupied slots, in ring order."""
+        return tuple(slot for slot in self._slots if slot is not None)
+
+    def variance(self, now: int, half_life_ticks: int, rate_q16: int | None = None) -> int:
+        """``E_v0[t]``: the weighted sum of every remembered amplitude at ``now``.
+
+        Anchors contribute their full amplitude forever.  Everything else decays
+        as ``e^-(elapsed / half_life)`` and is then scaled by the observer's
+        ``rate_q16`` -- the ``dT/dt`` term.  Every step is integer.
+        """
+        from .observer import RATE_ONE, pade_exp_neg
+
+        rate = RATE_ONE if rate_q16 is None else rate_q16
+        if half_life_ticks <= 0:
+            raise ValueError("half_life_ticks must be positive")
+        if rate < 0:
+            raise ValueError("rate_q16 must be non-negative")
+        total = 0
+        for slot in self._slots:
+            if slot is None:
+                continue
+            if slot.anchor:
+                amplitude = RATE_ONE
+            else:
+                elapsed = now - slot.born_tick
+                amplitude = (
+                    RATE_ONE if elapsed <= 0 else pade_exp_neg((elapsed << 16) // half_life_ticks)
+                )
+            term = (slot.amp_q16 * amplitude) >> 16
+            total += (term * rate) >> 16
+        return total
+
+    def consensus(self, now: int, half_life_ticks: int, rate_q16: int | None = None) -> int:
+        """The settled trit: ``+1``, ``0`` or ``-1`` from the current variance."""
+        total = self.variance(now, half_life_ticks, rate_q16)
+        return (total > 0) - (total < 0)
+
+    def __len__(self) -> int:
+        return sum(1 for slot in self._slots if slot is not None)
