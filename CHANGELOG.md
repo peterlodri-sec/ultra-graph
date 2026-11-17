@@ -28,6 +28,28 @@ All notable changes to this project. Format follows
 - `ternary_dot_packed` capsule published: 44 asm instructions, zero floats,
   zero unsafe, equivalence crown, **+400 FKN → 13 capsules / 6250 FKN**.
 
+### g8t — cycle-golf bounty board
+Two boss targets taken from the board, both modulo loops that pay for a real
+divide on every round:
+
+| capsule | was | now | asm | crown |
+|---|---:|---:|---:|---|
+| `gcd_binary_u32` | 288 cyc/op | **147** | 27 | yes (+400 FKN) |
+| `gcd_binary_i64` | 677 cyc/op | **272** | 53 | yes (+400 FKN) |
+
+Stein's binary GCD: strip the shared power of two, then subtract and discard
+factors of two -- no divide, and the larger operand strictly decreases each
+round, so it terminates. Both digests matched the board's equivalence classes
+exactly (`eb3e1ec8f830…`, `cdce9b8cd667…`), and both were checked against the
+naive loop on 200 000 random pairs plus the edge cases first: `gcd(0,0)=0` for
+`u32`, `gcd(0,0)=1` and `saturating_neg` sign handling for `i64`.
+
+Deliberately **not** attempted: the `i32` target. Its reference loop uses
+Rust's truncating `%`, so the sign of the result depends on the sequence of
+remainders (`gcd(-6,-4)` is `-2`, not `2`); a magnitude-based binary GCD cannot
+reproduce that, and faking the equivalence class would be worse than leaving
+the bounty. → 15 capsules / 7050 FKN.
+
 ## [0.28.0] — 2026-11-16
 
 ### Added
